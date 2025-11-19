@@ -1,0 +1,87 @@
+# .github/workflows/deploy.yml
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  LAUNCHDARKLY_SDK_KEY: ${{ secrets.LAUNCHDARKLY_SDK_KEY }}
+  DENO_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+  GIT_SHA: ${{ github.sha }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Run tests
+        run: deno test --allow-all
+
+      - name: Check flag usage
+        run: |
+          echo "Checking for flag keys in code..."
+          grep -r "ai-query-provider\|pivot-table-access\|data-materialization\|webllm-access" . || true
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create LaunchDarkly deployment event
+        run: |
+          curl -X POST https://app.launchdarkly.com/api/v2/engineering-insights/deployments \
+            -H "Authorization: ${{ secrets.LAUNCHDARKLY_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "application": {
+                "key": "thedenogatar",
+                "name": "TheDenogatar"
+              },
+              "version": "${{ github.sha }}",
+              "environment": "${{ env.DENO_ENV }}",
+              "startedAt": "'$(date -u +%s%3N)'",
+              "metadata": {
+                "branch": "${{ github.ref_name }}",
+                "commit": "${{ github.sha }}",
+                "author": "${{ github.actor }}"
+              }
+            }'
+
+      - name: Deploy to Render
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+          wait-for-success: true
+
+      - name: Update LaunchDarkly deployment status
+        if: always()
+        run: |
+          curl -X PATCH "https://app.launchdarkly.com/api/v2/engineering-insights/deployments/${{ env.DENO_ENV }}/thedenogatar/${{ github.sha }}" \
+            -H "Authorization: ${{ secrets.LAUNCHDARKLY_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "status": "${{ job.status == 'success' && 'succeeded' || 'failed' }}",
+              "endedAt": "'$(date -u +%s%3N)'"
+            }'
+
+      - name: Notify LaunchDarkly of successful deployment
+        if: success()
+        run: echo "✅ Deployment tracked in LaunchDarkly"

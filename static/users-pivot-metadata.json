@@ -1,0 +1,131 @@
+{
+  "user_key": {
+    "type": "string"
+  },
+  "user_id": {
+    "type": "string"
+  },
+  "email": {
+    "type": "string"
+  },
+  "first_device_id": {
+    "type": "string"
+  },
+  "last_device_id": {
+    "type": "string"
+  },
+  "last_event_time": {
+    "type": "datetime"
+  },
+  "last_event_date": {
+    "type": "date"
+  },
+  "days_since_last_event": {
+    "type": "number"
+  },
+  "total_events": {
+    "type": "number"
+  },
+  "total_days_active": {
+    "type": "number"
+  },
+  "total_sessions": {
+    "type": "number"
+  },
+  "total_revenue": {
+    "type": "number"
+  },
+  "events_24h": {
+    "type": "number"
+  },
+  "events_7d": {
+    "type": "number"
+  },
+  "events_30d": {
+    "type": "number"
+  },
+  "events_90d": {
+    "type": "number"
+  },
+  "sessions_24h": {
+    "type": "number"
+  },
+  "sessions_7d": {
+    "type": "number"
+  },
+  "sessions_30d": {
+    "type": "number"
+  },
+  "sessions_90d": {
+    "type": "number"
+  },
+  "days_active_7d": {
+    "type": "number"
+  },
+  "days_active_30d": {
+    "type": "number"
+  },
+  "days_active_90d": {
+    "type": "number"
+  },
+  "revenue_7d": {
+    "type": "number"
+  },
+  "revenue_30d": {
+    "type": "number"
+  },
+  "revenue_90d": {
+    "type": "number"
+  },
+  "largest_transaction": {
+    "type": "number"
+  },
+  "current_plan_tier": {
+    "type": "string"
+  },
+  "first_event_time": {
+    "type": "datetime"
+  },
+  "first_event_date": {
+    "type": "date"
+  },
+  "days_active_span": {
+    "type": "number"
+  },
+  "has_activated": {
+    "type": "number"
+  },
+  "max_lifecycle_stage": {
+    "type": "number"
+  },
+  "max_lifecycle_stage_name": {
+    "type": "string"
+  },
+  "first_touch_utm_source": {
+    "type": "level",
+    "hierarchy": "FirstTouch"
+  },
+  "first_touch_utm_medium": {
+    "type": "level",
+    "hierarchy": "FirstTouch",
+    "parent": "first_touch_utm_source"
+  },
+  "last_touch_utm_source": {
+    "type": "level",
+    "hierarchy": "LastTouch"
+  },
+  "last_touch_utm_medium": {
+    "type": "level",
+    "hierarchy": "LastTouch",
+    "parent": "last_touch_utm_source"
+  },
+  "is_active_7d": {
+    "type": "number"
+  },
+  "is_active_30d": {
+    "type": "number"
+  },
+  "is_paying_customer": {
+    "type": "number"
+  }
+}
