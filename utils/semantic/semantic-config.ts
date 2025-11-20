@@ -1,5 +1,5 @@
 // utils/semantic/config.ts
-import semanticConfig from "../../static/semantic-layer.json" with { type: "json" };
+import semanticConfig from "../../static/smarter_utils/semantic-layer.json" with { type: "json" };
 
 export interface SemanticConfig {
   version: number;
