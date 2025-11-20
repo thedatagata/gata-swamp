@@ -50,7 +50,7 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
           message: "Materializing sessions data locally...",
         });
 
-        const sessionsResult = await mdConn.evaluateStreamingQuery('SELECT * FROM my_db.amplitude.sessions_fct');
+        const sessionsResult = await mdConn.evaluateStreamingQuery('SELECT * FROM my_db.amplitude.sessions_pivot_src');
         const sessionsBatches = await sessionsResult.arrowStream.readAll();
         const Arrow = await import('apache-arrow');
         const sessionsArrow = new Arrow.Table(sessionsBatches);
@@ -138,7 +138,7 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
         });
 
         // Step 4: Integrate WebLLM with semantic layer
-        const llmHandler = new WebLLMSemanticHandler(semanticTables, "medium");
+        const llmHandler = new WebLLMSemanticHandler(semanticTables, "large");
         await llmHandler.initialize();
 
         setLoading({

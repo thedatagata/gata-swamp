@@ -1,217 +1,296 @@
-// utils/semantic/chart-generator.ts
+// utils/smarter/chart-generator-v2.ts
+import { createQueryAnalyzer, type VisualizationSpec } from "./query-response-analyzer.ts";
 import type { QueryResponse } from "./webllm-handler.ts";
-import type { SemanticConfig } from "./semantic-config.ts";
-import { detectChartType } from "./auto-chart-detector.ts";
 
 export interface ChartConfig {
-  type: 'bar' | 'line' | 'funnel' | 'pie' | 'stacked-bar' | 'biaxial-bar' | 'area-fill-by-value' | 'kpi';
-  title: string;
-  xKey: string;
-  yKeys: string[];
+  type: "bar" | "line" | "area" | "pie" | "funnel" | "scatter" | "heatmap";
   data: any[];
-  config: {
-    colors?: string[];
-    stacked?: boolean;
-    showLegend?: boolean;
-    showGrid?: boolean;
-    showTooltip?: boolean;
-    orientation?: 'horizontal' | 'vertical';
-    isTimeSeries?: boolean;
-    format?: {
-      [key: string]: {
-        type: 'currency' | 'percentage' | 'number';
-        decimals?: number;
+  layout: any;
+  config?: any;
+}
+
+export interface ChartGenerationResult {
+  chartConfig: ChartConfig;
+  visualizationSpec: VisualizationSpec;
+  alternativeCharts: ChartConfig[];
+}
+
+/**
+ * Generate chart using query response analyzer
+ */
+export function generateChartFromAnalysis(
+  queryResponse: QueryResponse,
+  data: any[]
+): ChartGenerationResult {
+  const analyzer = createQueryAnalyzer();
+  const vizSpec = analyzer.analyze(queryResponse);
+
+  console.log("📊 [ChartGenerator] Visualization Spec:", vizSpec);
+  console.log("🎯 [ChartGenerator] Query Type:", vizSpec.queryType);
+  console.log("📈 [ChartGenerator] Top Recommendation:", vizSpec.recommendedCharts[0]);
+
+  const primaryChart = buildChart(
+    vizSpec.recommendedCharts[0],
+    queryResponse,
+    data,
+    vizSpec
+  );
+
+  const alternativeCharts = vizSpec.recommendedCharts.slice(1).map(rec =>
+    buildChart(rec, queryResponse, data, vizSpec)
+  );
+
+  return {
+    chartConfig: primaryChart,
+    visualizationSpec: vizSpec,
+    alternativeCharts
+  };
+}
+
+/**
+ * Build specific chart type
+ */
+function buildChart(
+  recommendation: VisualizationSpec["recommendedCharts"][0],
+  queryResponse: QueryResponse,
+  data: any[],
+  vizSpec: VisualizationSpec
+): ChartConfig {
+  const { type, config } = recommendation;
+  const dims = queryResponse.dimensions;
+  const measures = queryResponse.measures;
+
+  switch (type) {
+    case "line":
+    case "area":
+      return buildTimeSeriesChart(type, dims, measures, data, vizSpec);
+
+    case "bar":
+      return buildBarChart(dims, measures, data, vizSpec, config);
+
+    case "funnel":
+      return buildFunnelChart(dims, measures, data, vizSpec);
+
+    case "pie":
+      return buildPieChart(dims, measures, data, vizSpec);
+
+    case "heatmap":
+      return buildHeatmapChart(dims, measures, data, vizSpec);
+
+    default:
+      return buildBarChart(dims, measures, data, vizSpec, config);
+  }
+}
+
+/**
+ * Time series chart (line/area)
+ */
+function buildTimeSeriesChart(
+  type: "line" | "area",
+  dimensions: string[],
+  measures: string[],
+  data: any[],
+  vizSpec: VisualizationSpec
+): ChartConfig {
+  const xAxis = vizSpec.dimensionCategories.temporal[0] || dimensions[0];
+  
+  const traces = measures.map(measure => ({
+    x: data.map(row => row[xAxis]),
+    y: data.map(row => row[measure]),
+    name: formatMeasureName(measure),
+    type: type,
+    fill: type === "area" ? "tonexty" : undefined
+  }));
+
+  return {
+    type,
+    data: traces,
+    layout: {
+      title: `${formatMeasureName(measures[0])} Over Time`,
+      xaxis: { title: formatDimensionName(xAxis) },
+      yaxis: { title: formatMeasureName(measures[0]) },
+      showlegend: measures.length > 1
+    }
+  };
+}
+
+/**
+ * Bar chart (horizontal/vertical, grouped/stacked)
+ */
+function buildBarChart(
+  dimensions: string[],
+  measures: string[],
+  data: any[],
+  vizSpec: VisualizationSpec,
+  config?: any
+): ChartConfig {
+  const dimension = dimensions[0] || "metric";
+  const orientation = config?.orientation || "v";
+  
+  if (dimensions.length === 0) {
+    // KPI comparison - no grouping dimension
+    const trace = {
+      x: measures.map(m => formatMeasureName(m)),
+      y: measures.map(m => data[0]?.[m] || 0),
+      type: "bar",
+      orientation: "v"
+    };
+
+    return {
+      type: "bar",
+      data: [trace],
+      layout: {
+        title: "Metric Comparison",
+        showlegend: false
       }
     };
+  }
+
+  // Standard grouped/stacked bar
+  const traces = measures.map(measure => ({
+    x: orientation === "v" ? data.map(row => row[dimension]) : data.map(row => row[measure]),
+    y: orientation === "v" ? data.map(row => row[measure]) : data.map(row => row[dimension]),
+    name: formatMeasureName(measure),
+    type: "bar",
+    orientation
+  }));
+
+  return {
+    type: "bar",
+    data: traces,
+    layout: {
+      title: `${formatMeasureName(measures[0])} by ${formatDimensionName(dimension)}`,
+      barmode: config?.barmode || "group",
+      showlegend: measures.length > 1
+    }
   };
 }
 
-const COLOR_PALETTE = [
-  '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c',
-  '#8dd1e1', '#a4de6c', '#d0ed57', '#ffa07a'
-];
-
-export function generateChartConfig(
-  query: QueryResponse,
+/**
+ * Funnel chart
+ */
+function buildFunnelChart(
+  dimensions: string[],
+  measures: string[],
   data: any[],
-  semanticConfig: SemanticConfig
+  vizSpec: VisualizationSpec
 ): ChartConfig {
-  const detection = detectChartType(query, semanticConfig, data);  // Pass data for detection
-  const modelConfig = semanticConfig[query.table];
-  
-  // Handle multiple dimensions + single measure (grouped bar chart)
-  let xKey: string;
-  let yKeys: string[];
-  let formattedData: any[];
-  
-  if (detection.config?.multiDimensionMultiMeasure && query.dimensions && query.dimensions.length >= 2 && query.measures.length >= 2) {
-    // Complex case: Multiple dimensions + multiple measures
-    // Strategy: First dimension = X-axis, pivot on second dimension, create bars for each measure
-    xKey = query.dimensions[0];
-    const groupDimension = query.dimensions[1];
-    const measures = query.measures;
-    
-    // Get unique values for grouping dimension
-    const groupValues = [...new Set(data.map(row => row[groupDimension]))];
-    
-    // Create bar names: dimension_value + measure (e.g., "mobile_revenue", "desktop_revenue")
-    yKeys = [];
-    groupValues.forEach(groupValue => {
-      measures.forEach(measure => {
-        yKeys.push(`${String(groupValue)}_${measure}`);
-      });
-    });
-    
-    // Pivot the data
-    const pivoted = new Map<string, any>();
-    data.forEach(row => {
-      const xValue = row[xKey];
-      const groupValue = String(row[groupDimension]);
-      
-      if (!pivoted.has(xValue)) {
-        pivoted.set(xValue, { [xKey]: xValue });
-      }
-      
-      measures.forEach(measure => {
-        const barKey = `${groupValue}_${measure}`;
-        pivoted.get(xValue)![barKey] = row[measure];
-      });
-    });
-    
-    formattedData = Array.from(pivoted.values());
-  } else if (detection.config?.multiDimension && query.dimensions && query.dimensions.length >= 2 && query.measures.length === 1) {
-    // Pivot data: first dimension = X-axis, other dimensions = bar groups
-    xKey = query.dimensions[0];
-    const groupDimension = query.dimensions[1];
-    const measure = query.measures[0];
-    
-    // Get unique values for grouping dimension
-    const groupValues = [...new Set(data.map(row => row[groupDimension]))];
-    yKeys = groupValues.map(String);
-    
-    // Pivot the data
-    const pivoted = new Map<string, any>();
-    data.forEach(row => {
-      const xValue = row[xKey];
-      const groupValue = String(row[groupDimension]);
-      const measureValue = row[measure];
-      
-      if (!pivoted.has(xValue)) {
-        pivoted.set(xValue, { [xKey]: xValue });
-      }
-      pivoted.get(xValue)![groupValue] = measureValue;
-    });
-    
-    formattedData = Array.from(pivoted.values());
-  } else {
-    // Standard case
-    xKey = query.dimensions?.[0] || 'index';
-    yKeys = query.measures || [];
-    formattedData = data.map((row, idx) => ({
-      ...row,
-      index: idx
-    }));
-  }
-  
-  const format: any = {};
-  yKeys.forEach(measure => {
-    const measureConfig = modelConfig.measures[measure];
-    if (measureConfig) {
-      format[measure] = {
-        type: measureConfig.format as 'currency' | 'percentage' | 'number',
-        decimals: measureConfig.decimals || 0
-      };
-    }
+  const dimension = vizSpec.dimensionCategories.sequential[0] || dimensions[0];
+  const measure = measures[0];
+
+  // Sort by lifecycle stage order if available
+  const sortedData = [...data].sort((a, b) => {
+    const stageOrder = ["awareness", "interest", "consideration", "trial", "activation"];
+    return stageOrder.indexOf(a[dimension]) - stageOrder.indexOf(b[dimension]);
   });
-  
-  const isTimeSeries = query.dimensions?.[0]?.includes('date') || 
-                       query.dimensions?.[0]?.includes('time') ||
-                       modelConfig.dimensions[query.dimensions?.[0] || '']?.is_time_dimension;
-  
-  const title = generateChartTitle(query, modelConfig);
-  
+
+  const trace = {
+    type: "funnel",
+    y: sortedData.map(row => formatDimensionValue(row[dimension])),
+    x: sortedData.map(row => row[measure]),
+    textinfo: "value+percent initial"
+  };
+
   return {
-    type: detection.type,
-    title,
-    xKey,
-    yKeys,
-    data: formattedData,
-    config: {
-      colors: COLOR_PALETTE.slice(0, yKeys.length),
-      stacked: detection.config?.barmode === 'stack',
-      showLegend: yKeys.length > 1,
-      showGrid: true,
-      showTooltip: true,
-      orientation: detection.config?.orientation === 'h' ? 'horizontal' : 'vertical',
-      isTimeSeries,
-      format
+    type: "funnel",
+    data: [trace],
+    layout: {
+      title: `${formatMeasureName(measure)} Funnel`
     }
   };
 }
 
-function generateChartTitle(query: QueryResponse, modelConfig: any): string {
-  const measures = query.measures.map(m => formatLabel(m)).join(' & ');
-  const dimensions = query.dimensions?.map(d => formatLabel(d)).join(' by ') || '';
-  
-  if (dimensions) {
-    return `${measures} by ${dimensions}`;
-  }
-  return measures;
-}
-
-function formatLabel(text: string): string {
-  return text
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, l => l.toUpperCase())
-    .replace(/Ltv/g, 'LTV')
-    .replace(/30d/g, '(30d)');
-}
-
-export function formatValue(
-  value: number | string | null | undefined,
-  format?: { type: 'currency' | 'percentage' | 'number'; decimals?: number }
-): string {
-  if (value === null || value === undefined) return 'N/A';
-  
-  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-  if (isNaN(numValue)) return String(value);
-  
-  if (!format) {
-    return numValue.toLocaleString();
-  }
-  
-  const decimals = format.decimals ?? 0;
-  
-  switch (format.type) {
-    case 'currency':
-      return `$${numValue.toLocaleString(undefined, {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-      })}`;
-    case 'percentage':
-      return `${numValue.toFixed(decimals)}%`;
-    case 'number':
-    default:
-      return numValue.toLocaleString(undefined, {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
-      });
-  }
-}
-
-export function autoGenerateChart(
-  query: QueryResponse,
+/**
+ * Pie chart
+ */
+function buildPieChart(
+  dimensions: string[],
+  measures: string[],
   data: any[],
-  semanticConfig: SemanticConfig
-): {
-  chartConfig: ChartConfig;
-  detection: any;
-} {
-  const chartConfig = generateChartConfig(query, data, semanticConfig);
-  const detection = detectChartType(query, semanticConfig, data);  // Pass data for detection
+  vizSpec: VisualizationSpec
+): ChartConfig {
+  const dimension = dimensions[0];
+  const measure = measures[0];
+
+  const trace = {
+    type: "pie",
+    labels: data.map(row => formatDimensionValue(row[dimension])),
+    values: data.map(row => row[measure]),
+    textinfo: "label+percent"
+  };
 
   return {
-    chartConfig,
-    detection
+    type: "pie",
+    data: [trace],
+    layout: {
+      title: `${formatMeasureName(measure)} Distribution`
+    }
   };
+}
+
+/**
+ * Heatmap chart
+ */
+function buildHeatmapChart(
+  dimensions: string[],
+  measures: string[],
+  data: any[],
+  vizSpec: VisualizationSpec
+): ChartConfig {
+  const xDim = dimensions[0];
+  const yDim = dimensions[1];
+  const measure = measures[0];
+
+  // Pivot data for heatmap
+  const xValues = [...new Set(data.map(row => row[xDim]))];
+  const yValues = [...new Set(data.map(row => row[yDim]))];
+  
+  const zMatrix = yValues.map(yVal =>
+    xValues.map(xVal => {
+      const row = data.find(r => r[xDim] === xVal && r[yDim] === yVal);
+      return row ? row[measure] : 0;
+    })
+  );
+
+  const trace = {
+    type: "heatmap",
+    x: xValues,
+    y: yValues,
+    z: zMatrix,
+    colorscale: "Viridis"
+  };
+
+  return {
+    type: "heatmap",
+    data: [trace],
+    layout: {
+      title: `${formatMeasureName(measure)} by ${formatDimensionName(xDim)} and ${formatDimensionName(yDim)}`,
+      xaxis: { title: formatDimensionName(xDim) },
+      yaxis: { title: formatDimensionName(yDim) }
+    }
+  };
+}
+
+/**
+ * Formatting helpers
+ */
+function formatMeasureName(measure: string): string {
+  return measure
+    .split("_")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatDimensionName(dimension: string): string {
+  return dimension
+    .split("_")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatDimensionValue(value: any): string {
+  if (typeof value === "string") {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+  return String(value);
 }

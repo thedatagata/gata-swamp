@@ -1,103 +1,198 @@
-// utils/semantic/config.ts
-import semanticConfig from "../../static/smarter_utils/semantic-layer.json" with { type: "json" };
+// utils/smarter/semantic-amplitude-pivot-config.ts
+import semanticMetadata from "../../static/smarter_utils/semantic-amplitude-metadata.json" with { type: "json" };
 
-export interface SemanticConfig {
-  version: number;
-  sessions: ModelConfig;
-  users: ModelConfig;
-  charts: Record<string, ChartConfig>;
+/**
+ * Field metadata - complete information about each column
+ */
+export interface FieldMetadata {
+  description: string;
+  md_data_type: string; // VARCHAR, INTEGER, BIGINT, BOOLEAN, DECIMAL, DATE, TIMESTAMP
+  ingest_data_type: string; // string, integer, number, Uint8Array, date, timestamp
+  sanitize: boolean; // Whether field needs data type transformation
+  data_type_category: "nominal" | "categorical" | "ordinal" | "continuous" | "discrete";
+  members: any[] | null; // Unique values if categorical/discrete
+  group: string | null; // Logical grouping (temporal, lifecycle, conversion, etc)
+  parent: boolean; // Whether this is a parent dimension in a hierarchy
 }
 
-export interface ModelConfig {
+/**
+ * Dimension configuration - how a field should be used as a dimension
+ */
+export interface DimensionConfig {
+  column: string; // References field name
+  transformation: string | null; // SQL transformation (e.g., CASE WHEN for labels)
+  filter: string | null; // Default filter to apply
+  sort: string; // "asc" | "desc" | "none" | "custom:value1,value2,..."
+}
+
+/**
+ * Measure configuration - how a field should be aggregated
+ */
+export interface MeasureConfig {
+  column: string | null; // References field name (null for COUNT(*))
+  aggregations: string[]; // ["sum", "avg", "count", "count_distinct", "min", "max", "complex"]
+  formula: string; // SQL aggregation formula
+  description: string;
+  format: "number" | "currency" | "percentage";
+  currency?: string;
+  decimals: number;
+}
+
+/**
+ * Complete semantic layer metadata
+ */
+export interface SemanticMetadata {
   table: string;
   description: string;
+  fields: Record<string, FieldMetadata>;
   dimensions: Record<string, DimensionConfig>;
   measures: Record<string, MeasureConfig>;
 }
 
-export interface DimensionConfig {
-  column?: string;
-  sql?: string;
-  type: string;
-  description: string;
-  cardinality?: string;
-  values?: string[];
-  is_time_dimension?: boolean;
+/**
+ * Get the complete semantic metadata
+ */
+export function getSemanticMetadata(): SemanticMetadata {
+  return semanticMetadata as SemanticMetadata;
 }
 
-export interface MeasureConfig {
-  aggregation: string;
-  description: string;
-  format: string;
-  decimals?: number;
-  currency?: string;
-  unit?: string;
+/**
+ * Data sanitization utilities
+ */
+export function sanitizeValue(value: any, field: FieldMetadata): any {
+  if (!field.sanitize) return value;
+
+  // Handle Uint8Array (DuckDB's way of representing small integers)
+  if (value instanceof Uint8Array) {
+    let result = 0;
+    for (let i = 0; i < Math.min(8, value.length); i++) {
+      result += value[i] * Math.pow(256, i);
+    }
+    return result;
+  }
+
+  // Handle BigInt
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+
+  return value;
 }
 
-export interface ChartConfig {
-  model: string;
-  type: string;
-  title: string;
-  description?: string;
-  dimensions?: string[];
-  measures?: string[];
-}
-
-export function getSemanticConfig(): SemanticConfig {
-  return semanticConfig as SemanticConfig;
-}
-
-export function getModelConfig(modelName: "sessions" | "users"): ModelConfig {
-  return semanticConfig[modelName] as ModelConfig;
-}
-
-export function getChartConfig(chartName: string): ChartConfig | undefined {
-  return semanticConfig.charts?.[chartName] as ChartConfig;
-}
-
-// Optimized for 3B model - grouped fields for better discovery
-export function generateWebLLMPrompt(): string {
-  const config = getSemanticConfig();
+/**
+ * Sanitize an entire row of data
+ */
+export function sanitizeRow(row: Record<string, any>, metadata: SemanticMetadata): Record<string, any> {
+  const sanitized: Record<string, any> = {};
   
+  for (const [key, value] of Object.entries(row)) {
+    const field = metadata.fields[key];
+    if (field) {
+      sanitized[key] = sanitizeValue(value, field);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  
+  return sanitized;
+}
+
+/**
+ * Get fields by group
+ */
+export function getFieldsByGroup(group: string): string[] {
+  const metadata = getSemanticMetadata();
+  return Object.entries(metadata.fields)
+    .filter(([_, field]) => field.group === group)
+    .map(([name, _]) => name);
+}
+
+/**
+ * Get parent dimensions (for hierarchies)
+ */
+export function getParentDimensions(): string[] {
+  const metadata = getSemanticMetadata();
+  return Object.entries(metadata.fields)
+    .filter(([_, field]) => field.parent)
+    .map(([name, _]) => name);
+}
+
+/**
+ * Get available aggregations for a measure
+ */
+export function getAvailableAggregations(measureName: string): string[] {
+  const metadata = getSemanticMetadata();
+  const measure = metadata.measures[measureName];
+  return measure?.aggregations || [];
+}
+
+/**
+ * Generate optimized WebLLM prompt for DeepSeek-R1-Distill-8B
+ */
+export function generatePivotWebLLMPrompt(): string {
+  const metadata = getSemanticMetadata();
+  
+  // Organize dimensions by group
+  const dimsByGroup: Record<string, string[]> = {};
+  Object.entries(metadata.dimensions).forEach(([dimName, dimConfig]) => {
+    const field = metadata.fields[dimConfig.column];
+    const group = field?.group || "other";
+    if (!dimsByGroup[group]) dimsByGroup[group] = [];
+    dimsByGroup[group].push(dimName);
+  });
+
+  // Organize measures by type
+  const eventMeasures = Object.keys(metadata.measures).filter(m => 
+    m.includes("_events") || m.includes("event")
+  );
+  const rateMeasures = Object.keys(metadata.measures).filter(m => 
+    m.includes("_rate") || m.includes("_ratio")
+  );
+  const countMeasures = Object.keys(metadata.measures).filter(m => 
+    m.includes("count") || m.includes("sessions") && !m.includes("_rate")
+  );
+  const revenueMeasures = Object.keys(metadata.measures).filter(m => 
+    m.includes("revenue")
+  );
+
   return `You are a data analyst. Generate query specs in JSON format ONLY.
 
-# Sessions Table (${config.sessions.table})
-**Time Dimensions**: session_date, session_start_time, session_number
-**Marketing/Attribution**: traffic_source, utm_source, utm_medium, utm_campaign, utm_content, utm_term
-**User Identity**: cookie_id, device_id, session_id, is_identified, is_customer
-**Behavior**: plan_tier, max_lifecycle_stage, max_funnel_step, has_conversion, reached_activation, is_conversion_session
-**Key Measures**: session_count, unique_visitors, total_revenue, conversion_rate, avg_revenue_per_session
-**Engagement**: total_events, avg_events_per_session, avg_session_duration
-**Growth Metrics**: revenue_growth_rate, sessions_growth_rate, activation_growth_rate
-**Stage Events**: awareness_events, interest_events, consideration_events, trial_events, activation_events, retention_events
+# Table: ${metadata.table}
+**Description**: ${metadata.description}
 
-# Users Table (${config.users.table})
-**Time Dimensions**: first_event_date, last_event_date, first_event_time, last_event_time
-**Identity**: user_key, user_id, first_device_id, last_device_id
-**Attribution**: first_touch_utm_source, first_touch_utm_medium, first_touch_utm_campaign, last_touch_utm_source, last_touch_utm_medium, last_touch_utm_campaign
-**Status**: current_plan_tier, max_lifecycle_stage_name, is_paying_customer, is_active_7d, is_active_30d, has_activated
-**Activity Metrics**: days_active_span, days_since_last_event
-**Key Measures**: user_count, paying_customers, total_ltv, avg_ltv, active_users_30d
-**Engagement**: avg_sessions_per_user, avg_events_per_user, avg_days_active
-**Acquisition**: new_users, new_users_7d, returning_users
-**Retention**: retention_rate_7d, retention_rate_30d, activation_rate, customer_conversion_rate
-**Revenue**: total_revenue_7d, total_revenue_30d, total_revenue_90d, avg_ltv_paying
+## Dimensions (Group By)
+**Temporal**: ${dimsByGroup.temporal?.join(", ") || "none"}
+**Lifecycle**: ${dimsByGroup.lifecycle?.join(", ") || "none"}
+**Marketing**: ${dimsByGroup.marketing_channel?.join(", ") || "none"}
+**User Status**: ${dimsByGroup.user_status?.join(", ") || "none"}
+**Monetization**: ${dimsByGroup.monetization?.join(", ") || "none"}
+**Funnel**: ${dimsByGroup.funnel?.join(", ") || "none"}
+
+## Measures (Aggregations)
+**Event Counts**: ${eventMeasures.join(", ")}
+**Rates**: ${rateMeasures.join(", ")}
+**Session Counts**: ${countMeasures.join(", ")}
+**Revenue**: ${revenueMeasures.join(", ")}
 
 # Response Format (CRITICAL - JSON ONLY, NO MARKDOWN)
 {
-  "table": "sessions" | "users",
-  "dimensions": ["dim1"],
-  "measures": ["measure1"],
-  "filters": ["filter"],
+  "dimensions": ["dim1", "dim2"],
+  "measures": ["measure1", "measure2"],
+  "filters": ["optional filter"],
   "explanation": "what this shows"
 }
 
+# IMPORTANT RULES
+1. Event columns like interest_events, trial_events are MEASURES (aggregations), NOT dimensions
+2. "sum of X by Y" means: dimensions=["Y"], measures=["X"]
+3. "X by traffic source" means: dimensions=["traffic_source"], measures=["X"]
+4. Always use dimensions for grouping (by), measures for aggregating (sum, count, avg)
+5. Respond with ONLY valid JSON - no markdown, no code blocks, no extra text
+
 # Examples
-"conversion rate by source" → {"table":"sessions","dimensions":["traffic_source"],"measures":["conversion_rate"],"explanation":"Conversion rates by traffic source"}
+"sum of interest events by traffic source" → {"dimensions":["traffic_source"],"measures":["interest_events"],"explanation":"Total interest events by traffic source"}
 
-"active users by plan" → {"table":"users","dimensions":["current_plan_tier"],"measures":["active_users_30d"],"filters":["_.current_plan_tier != ''"],"explanation":"Active users by subscription tier"}
+"conversion rate by weekday" → {"dimensions":["session_weekday_name"],"measures":["activation_rate"],"explanation":"Activation rates by day of week"}
 
-"revenue over time" → {"table":"sessions","dimensions":["session_date"],"measures":["total_revenue"],"explanation":"Revenue trends over time"}
-
-"first touch attribution" → {"table":"users","dimensions":["first_touch_utm_source"],"measures":["user_count","total_ltv"],"explanation":"User acquisition and value by initial source"}`;
+"new vs returning visitors" → {"dimensions":[],"measures":["new_visitor_sessions","returning_visitor_sessions"],"explanation":"New vs returning visitor counts"}`;
 }

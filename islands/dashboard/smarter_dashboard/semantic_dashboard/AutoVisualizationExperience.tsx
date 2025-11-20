@@ -1,7 +1,7 @@
 // islands/dashboard/smarter_dashboard/semantic_dashboard/AutoVisualizationExperience.tsx
 import { useEffect, useState } from "preact/hooks";
 import { WebLLMSemanticHandler } from "../../../../utils/smarter/webllm-handler.ts";
-import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitude.ts";
+import { createSemanticTable } from "../../../../utils/smarter/semantic-amplitude.ts";
 import { autoGenerateChart } from "../../../../utils/smarter/chart-generator.ts";
 import { getSemanticConfig } from "../../../../utils/smarter/semantic-config.ts";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
@@ -39,8 +39,8 @@ export default function AutoVisualizationExperience({
   useEffect(() => {
     async function initWebLLM() {
       try {
-        const tables = createSemanticTables(db);
-        const llmHandler = new WebLLMSemanticHandler(tables, "medium");
+        const table = createSemanticTable(db);
+        const llmHandler = new WebLLMSemanticHandler(table, "large");
 
         await llmHandler.initialize((progress) => {
           console.log("WebLLM initialization:", progress);
@@ -51,7 +51,7 @@ export default function AutoVisualizationExperience({
 
         // If we have querySpec (from details page Execute), run it directly
         if (querySpec) {
-          executeQuerySpec(querySpec, tables);
+          executeQuerySpec(querySpec, table);
         }
         // If we have an initial query string, run it
         else if (initialQuery) {

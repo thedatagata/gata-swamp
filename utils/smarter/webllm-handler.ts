@@ -1,36 +1,46 @@
-// utils/semantic/webllm-handler.ts
+// utils/smarter/webllm-handler.ts
 import { CreateMLCEngine } from "@mlc-ai/web-llm";
-import { generateWebLLMPrompt, getSemanticConfig } from "./semantic-config.ts";
+import { generateWebLLMPrompt } from "./semantic-config.ts";
+import { validateAndAnalyzeQuery, generateCorrectionPrompt, type QueryValidationReport } from "./query-validator.ts";
 import type { SemanticTable } from "./semantic-amplitude.ts";
 
 export interface QueryResponse {
-  table: "sessions" | "users";
   dimensions: string[];
   measures: string[];
   filters?: string[];
   explanation: string;
 }
 
+export interface QueryGenerationMetrics {
+  attemptCount: number;
+  validationUsed: boolean;
+  initialValid: boolean;
+  finalValid: boolean;
+  totalTimeMs: number;
+  validationReport?: QueryValidationReport;
+}
+
 export class WebLLMSemanticHandler {
   private engine: any;
   private systemPrompt: string;
   private modelId: string;
-  private semanticConfig: any;
+  private useValidation: boolean;
 
-  // Model tier options
   private static MODEL_TIERS = {
     small: "Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC",
     medium: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
-    large: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC",
+    large: "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC",
   };
 
   constructor(
-    private semanticTables: { sessions: SemanticTable; users: SemanticTable },
-    tier: "small" | "medium" | "large" = "medium",
+    private semanticTable: SemanticTable,
+    tier: "small" | "medium" | "large" = "large",
   ) {
     this.modelId = WebLLMSemanticHandler.MODEL_TIERS[tier];
     this.systemPrompt = generateWebLLMPrompt();
-    this.semanticConfig = getSemanticConfig();
+    this.useValidation = tier !== "large";
+    
+    console.log(`🤖 [WebLLM] Model: ${tier}, Validation: ${this.useValidation ? "enabled" : "disabled"}`);
   }
 
   async initialize(onProgress?: (progress: any) => void) {
@@ -45,17 +55,75 @@ export class WebLLMSemanticHandler {
   async generateQuery(userPrompt: string): Promise<{
     query: QueryResponse;
     data: any[];
+    metrics: QueryGenerationMetrics;
   }> {
+    const startTime = Date.now();
+    const metrics: QueryGenerationMetrics = {
+      attemptCount: 0,
+      validationUsed: this.useValidation,
+      initialValid: false,
+      finalValid: false,
+      totalTimeMs: 0
+    };
+
     console.log("🤖 [WebLLM] Starting query generation...");
     console.log("📝 [WebLLM] User prompt:", userPrompt);
-    console.log("📋 [WebLLM] System prompt length:", this.systemPrompt.length, "chars");
+
+    metrics.attemptCount = 1;
+    let querySpec = await this.generateQuerySpec(userPrompt);
     
+    if (this.useValidation) {
+      const report = validateAndAnalyzeQuery(querySpec);
+      metrics.validationReport = report;
+      metrics.initialValid = report.valid;
+
+      console.log("🔍 [WebLLM] Validation:", {
+        valid: report.valid,
+        invalidDims: report.validation.invalidDimensions,
+        invalidMeasures: report.validation.invalidMeasures
+      });
+
+      while (!report.valid && metrics.attemptCount < 3) {
+        metrics.attemptCount++;
+        console.log(`🔄 [WebLLM] Retry ${metrics.attemptCount}...`);
+        
+        const correctionPrompt = generateCorrectionPrompt(report, userPrompt);
+        querySpec = await this.generateQuerySpec(correctionPrompt);
+        
+        const retryReport = validateAndAnalyzeQuery(querySpec);
+        if (retryReport.valid) {
+          console.log("✅ [WebLLM] Correction successful!");
+          metrics.validationReport = retryReport;
+          break;
+        }
+      }
+
+      metrics.finalValid = metrics.validationReport?.valid || false;
+    } else {
+      metrics.initialValid = true;
+      metrics.finalValid = true;
+    }
+
+    console.log("🚀 [WebLLM] Executing query...");
+    const data = await this.semanticTable.query({
+      dimensions: querySpec.dimensions,
+      measures: querySpec.measures,
+      filters: querySpec.filters,
+    });
+
+    metrics.totalTimeMs = Date.now() - startTime;
+    console.log(`✅ [WebLLM] Complete in ${metrics.totalTimeMs}ms, attempts: ${metrics.attemptCount}`);
+
+    return { query: querySpec, data, metrics };
+  }
+
+  private async generateQuerySpec(prompt: string): Promise<QueryResponse> {
     const completion = await this.engine.chat.completions.create({
       messages: [
         { role: "system", content: this.systemPrompt },
         {
           role: "user",
-          content: userPrompt + "\n\nRemember: Respond with ONLY valid JSON, no markdown.",
+          content: prompt + "\n\nRemember: Respond with ONLY valid JSON, no markdown.",
         },
       ],
       temperature: 0.0,
@@ -63,82 +131,23 @@ export class WebLLMSemanticHandler {
     });
 
     const responseText = completion.choices[0].message.content;
-    console.log("🔍 [WebLLM] Raw LLM response:", responseText);
+    console.log("🔍 [WebLLM] Raw response:", responseText);
 
-    // Aggressive markdown stripping and JSON extraction
-    let querySpec: QueryResponse;
-    try {
-      const cleanedText = responseText
-        .replace(/```json\s*/g, "")
-        .replace(/```\s*/g, "")
-        .replace(/^[^{]*/, "")
-        .replace(/[^}]*$/, "")
-        .trim();
+    const cleanedText = responseText
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .replace(/^[^{]*/, "")
+      .replace(/[^}]*$/, "")
+      .trim();
 
-      console.log("🧹 [WebLLM] Cleaned text:", cleanedText);
-      
-      querySpec = JSON.parse(cleanedText);
-      console.log("✅ [WebLLM] Parsed query spec:", JSON.stringify(querySpec, null, 2));
-
-      // Validate required fields
-      if (!querySpec.table || !querySpec.measures || !Array.isArray(querySpec.measures)) {
-        throw new Error("Invalid query spec structure: missing table or measures");
-      }
-
-      querySpec.dimensions = querySpec.dimensions || [];
-      console.log("📊 [WebLLM] Query targets:", {
-        table: querySpec.table,
-        dimensions: querySpec.dimensions,
-        measures: querySpec.measures,
-        filters: querySpec.filters
-      });
-    } catch (error) {
-      console.error("❌ [WebLLM] Parse error:", error.message);
-      console.error("❌ [WebLLM] Failed text:", responseText);
-      throw new Error(`Failed to parse WebLLM response: ${error.message}`);
+    const querySpec = JSON.parse(cleanedText);
+    
+    if (!querySpec.measures || !Array.isArray(querySpec.measures)) {
+      throw new Error("Invalid query spec: missing measures");
     }
 
-    // Validate dimensions/measures exist in semantic layer
-    const table = this.semanticTables[querySpec.table];
-    const metadata = table.getMetadata();
-    
-    console.log("🔎 [WebLLM] Validating against semantic layer...");
-    console.log("📚 [WebLLM] Available dimensions:", Object.keys(metadata.dimensions));
-    console.log("📊 [WebLLM] Available measures:", Object.keys(metadata.measures));
-
-    querySpec.dimensions?.forEach((dim) => {
-      if (!metadata.dimensions[dim]) {
-        console.error(`❌ [WebLLM] Unknown dimension: ${dim}`);
-        throw new Error(
-          `Unknown dimension: ${dim}. Available: ${Object.keys(metadata.dimensions).join(", ")}`,
-        );
-      }
-      console.log(`✅ [WebLLM] Dimension validated: ${dim}`);
-    });
-
-    querySpec.measures?.forEach((measure) => {
-      if (!metadata.measures[measure]) {
-        console.error(`❌ [WebLLM] Unknown measure: ${measure}`);
-        throw new Error(
-          `Unknown measure: ${measure}. Available: ${Object.keys(metadata.measures).join(", ")}`,
-        );
-      }
-      console.log(`✅ [WebLLM] Measure validated: ${measure}`);
-    });
-
-    console.log("🚀 [WebLLM] Executing query...");
-    
-    // Execute query using semantic layer
-    const data = await table.query({
-      dimensions: querySpec.dimensions,
-      measures: querySpec.measures,
-      filters: querySpec.filters,
-    });
-
-    console.log(`✅ [WebLLM] Query executed successfully! Rows returned: ${data.length}`);
-    console.log("📦 [WebLLM] Sample data (first row):", data[0]);
-
-    return { query: querySpec, data };
+    querySpec.dimensions = querySpec.dimensions || [];
+    return querySpec;
   }
 
   async generateSQLPreview(userPrompt: string): Promise<QueryResponse & { sql: string }> {
@@ -155,32 +164,17 @@ export class WebLLMSemanticHandler {
     });
 
     const responseText = completion.choices[0].message.content;
+    const cleanedText = responseText
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .replace(/^[^{]*/, "")
+      .replace(/[^}]*$/, "")
+      .trim();
 
-    // Parse JSON response
-    let querySpec: QueryResponse;
-    try {
-      const cleanedText = responseText
-        .replace(/```json\s*/g, "")
-        .replace(/```\s*/g, "")
-        .replace(/^[^{]*/, "")
-        .replace(/[^}]*$/, "")
-        .trim();
+    const querySpec = JSON.parse(cleanedText);
+    querySpec.dimensions = querySpec.dimensions || [];
 
-      querySpec = JSON.parse(cleanedText);
-
-      if (!querySpec.table || !querySpec.measures) {
-        throw new Error("Invalid query spec");
-      }
-
-      querySpec.dimensions = querySpec.dimensions || [];
-    } catch (error) {
-      console.error("Raw LLM response:", responseText);
-      throw new Error(`Failed to parse WebLLM response: ${error.message}`);
-    }
-
-    // Generate SQL representation
-    const table = this.semanticTables[querySpec.table];
-    const sql = table.generateSQL({
+    const sql = this.semanticTable.generateSQL({
       dimensions: querySpec.dimensions,
       measures: querySpec.measures,
       filters: querySpec.filters,
@@ -191,9 +185,7 @@ export class WebLLMSemanticHandler {
 
   async chat(prompt: string): Promise<string> {
     const completion = await this.engine.chat.completions.create({
-      messages: [
-        { role: "user", content: prompt },
-      ],
+      messages: [{ role: "user", content: prompt }],
       temperature: 0.3,
       max_tokens: 500,
     });
@@ -203,7 +195,6 @@ export class WebLLMSemanticHandler {
 
   async suggestVisualization(querySpec: QueryResponse, data: any[]) {
     const vizPrompt = `Given this query result:
-Table: ${querySpec.table}
 Dimensions: ${querySpec.dimensions.join(", ")}
 Measures: ${querySpec.measures.join(", ")}
 Row count: ${data.length}
@@ -243,6 +234,7 @@ Suggest the best chart type and configuration. Respond with JSON only:
       modelId: this.modelId,
       tier: Object.entries(WebLLMSemanticHandler.MODEL_TIERS)
         .find(([_, id]) => id === this.modelId)?.[0] || "unknown",
+      validationEnabled: this.useValidation
     };
   }
 }
