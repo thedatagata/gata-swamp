@@ -4,7 +4,7 @@ import type { SemanticConfig } from "./semantic-config.ts";
 import { detectChartType } from "./auto-chart-detector.ts";
 
 export interface ChartConfig {
-  type: 'bar' | 'line' | 'funnel' | 'area' | 'heatmap' | 'stacked-bar' | 'biaxial-bar' | 'area-fill-by-value' | 'kpi';
+  type: 'bar' | 'line' | 'funnel' | 'pie' | 'stacked-bar' | 'biaxial-bar' | 'area-fill-by-value' | 'kpi';
   title: string;
   xKey: string;
   yKeys: string[];

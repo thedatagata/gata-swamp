@@ -3,10 +3,10 @@ import { useEffect, useState } from "preact/hooks";
 import KPICard from "../../../../components/charts/KPICard.tsx";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
 import FunnelChart from "../../../charts/FunnelChart.tsx";
-import { createSemanticTables } from "../../../../utils/semantic/semantic-amplitude.ts";
-import { sessionsDashboardQueries } from "../../../../utils/semantic/dashboard-queries.ts";
-import { generateDashboardChartConfig } from "../../../../utils/semantic/dashboard-chart-generator.ts";
-import { getModelConfig } from "../../../../utils/semantic/semantic-config.ts";
+import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitude.ts";
+import { sessionsDashboardQueries } from "../../../../utils/smarter/dashboard-queries.ts";
+import { generateDashboardChartConfig } from "../../../../utils/smarter/dashboard-chart-generator.ts";
+import { getModelConfig } from "../../../../utils/smarter/semantic-config.ts";
 import { metadataStore } from "../../../../utils/services/metadata-store.ts";
 
 function uint8ArrayToNumber(arr: Uint8Array): number {
@@ -167,12 +167,22 @@ export default function SessionDetailsDashboard({
   };
 
   const sessionsConfig = getModelConfig("sessions");
+  
+  // Revenue KPI
   const revenueCurrent = getKPIValue('sessions_total_revenue', 'revenue_last_30d');
   const revenuePrevious = getKPIValue('sessions_total_revenue', 'revenue_previous_30d');
   const revenueGrowth = getKPIValue('sessions_total_revenue', 'revenue_growth_rate');
+  
+  // Sessions Count KPI
   const sessionsCurrent = getKPIValue('sessions_count_kpi', 'sessions_last_30d');
   const sessionsPrevious = getKPIValue('sessions_count_kpi', 'sessions_previous_30d');
-  const sessionsGrowth = getKPIValue('sessions_count_kpi', 'sessions_growth_rate');
+  const sessionsGrowth = ((sessionsCurrent - sessionsPrevious) / sessionsPrevious * 100) || 0;
+  
+  // New vs Returning KPI
+  const newVsReturningCurrent = getKPIValue('new_vs_returning', 'new_vs_returning_30d');
+  const newVsReturningPrevious = getKPIValue('new_vs_returning', 'new_vs_returning_previous_30d');
+  const newVsReturningChange = ((newVsReturningCurrent - newVsReturningPrevious) / newVsReturningPrevious * 100) || 0;
+  
 
   if (error) {
     return (
@@ -230,15 +240,17 @@ export default function SessionDetailsDashboard({
       )}
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Total Revenue (30d)" value={revenueCurrent} previousValue={revenuePrevious} 
+        <KPICard title="Revenue" value={revenueCurrent} previousValue={revenuePrevious} 
           changePercent={revenueGrowth} format="currency" decimals={0} loading={loading} />
-        <KPICard title="Total Sessions (30d)" value={sessionsCurrent} previousValue={sessionsPrevious}
+        <KPICard title="Traffic" value={sessionsCurrent} previousValue={sessionsPrevious}
           changePercent={sessionsGrowth} format="number" loading={loading} />
+        <KPICard title="New vs Returning" value={newVsReturningCurrent} previousValue={sessionsPrevious}
+          changePercent={newVsReturningChange} format="number" loading={loading} />
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {chartData['revenue_by_plan']?.config && (
-          <FreshChartsWrapper config={chartData['revenue_by_plan'].config} height={400} loading={loading} />
+        {chartData['plan_performance']?.config && (
+          <FreshChartsWrapper config={chartData['plan_performance'].config} height={400} loading={loading} />
         )}
         {chartData['traffic_source_performance']?.config && (
           <FreshChartsWrapper config={chartData['traffic_source_performance'].config} height={400} loading={loading} />

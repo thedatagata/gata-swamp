@@ -7,7 +7,7 @@ export default function Nav() {
           <a href="/" class="flex items-center space-x-2">
             <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-[#90C137]">
               <img
-                src="/nerdy_alligator_headshot.png"
+                src="/gata_app_utils/nerdy_alligator_headshot.png"
                 alt="DATA_GATA Logo"
                 class="w-full h-full object-cover"
               />

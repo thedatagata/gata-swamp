@@ -1,6 +1,6 @@
-// utils/semantic/pivot-query-builder.ts
+// utils/starter/pivot-query-builder.ts
 import { generateSliceObject } from "./slice-object-generator.ts";
-import metadataJson from "../../static/users-pivot-metadata.json" with { type: "json" };
+import metadataJson from "../../static/starter_utils/users-pivot-metadata.json" with { type: "json" };
 
 /**
  * Strip aggregations, aliases, GROUP BY, and LIMIT from SQL to get raw column names

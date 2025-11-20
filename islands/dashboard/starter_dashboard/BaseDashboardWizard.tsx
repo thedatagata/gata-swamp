@@ -7,7 +7,7 @@ import { sanitizeQueryData } from "./data-utils.ts";
 import { 
   buildReportFromSQL, 
   handle1MBLimitError 
-} from "../../../utils/semantic/pivot-query-builder.ts";
+} from "../../../utils/starter/pivot-query-builder.ts";
 
 interface BaseDashboardWizardProps {
   motherDuckToken: string;

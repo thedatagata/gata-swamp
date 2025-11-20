@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { 
   generateSliceObject, 
   getFieldMetadata 
-} from "../../../utils/semantic/slice-object-generator.ts";
+} from "../../../utils/starter/slice-object-generator.ts";
 
 interface WebDataRocksPivotProps {
   data: any[];

@@ -8,27 +8,19 @@ export interface DashboardQuery {
   filters?: string[];
   title: string;
   description: string;
-  chartType: 'kpi' | 'bar' | 'line' | 'funnel' | 'heatmap' | 'scatter';
+  chartType: 'kpi' | 'bar' | 'line' | 'funnel' | 'pie';
   chartConfig?: any;
 }
 
 // Sessions Dashboard Queries
 export const sessionsDashboardQueries: DashboardQuery[] = [
-  // KPI Cards for Landing Overview
+  // KPI Cards for Sessions Detail Page
   {
-    id: "sessions_new_vs_returning",
+    id: "new_vs_returning",
     table: "sessions",
-    measures: ["new_sessions_last_30d", "new_sessions_previous_30d"],
-    title: "New Sessions (30d)",
-    description: "First-time sessions: Last 30d vs previous 30d",
-    chartType: "kpi"
-  },
-  {
-    id: "sessions_activations",
-    table: "sessions",
-    measures: ["activation_last_30d", "activation_previous_30d", "activation_growth_rate"],
-    title: "Activations (30d)",
-    description: "Total activations: Last 30d vs previous 30d",
+    measures: ["new_vs_returning_30d", "new_vs_returning_previous_30d"],
+    title: "New vs Returning Visitors",
+    description: "Ratio of new to returning visitors: Last 30d vs previous 30d",
     chartType: "kpi"
   },
   {
@@ -39,28 +31,20 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     description: "Last 30 days vs previous 30 days",
     chartType: "kpi"
   },
-  
-  // Charts
   {
-    id: "revenue_by_plan",
+    id: "sessions_count_kpi",
     table: "sessions",
-    dimensions: ["plan_tier"],
-    measures: ["total_revenue", "session_count", "conversion_rate"],
-    filters: ["_.plan_tier != ''", "_.plan_tier IS NOT NULL"],
-    title: "Revenue by Plan Tier",
-    description: "Revenue, sessions, and conversion by subscription tier",
-    chartType: "bar",
-    chartConfig: {
-      barmode: 'group',
-      orientation: 'v'
-    }
+    measures: ["sessions_last_30d", "sessions_previous_30d"],
+    title: "Total Sessions (30d)",
+    description: "Last 30 days vs previous 30 days",
+    chartType: "kpi"
   },
   
   {
     id: "traffic_source_performance",
     table: "sessions",
     dimensions: ["traffic_source"],
-    measures: ["session_count", "unique_visitors", "conversion_rate", "total_revenue"],
+    measures: ["session_count", "total_revenue"],
     title: "Traffic Source Performance",
     description: "Sessions, visitors, conversion, and revenue by source",
     chartType: "bar",
@@ -71,36 +55,10 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
   },
 
   {
-    id: "utm_campaign_performance",
-    table: "sessions",
-    dimensions: ["utm_campaign"],
-    measures: ["session_count", "conversion_rate", "total_revenue", "avg_revenue_per_session"],
-    filters: ["_.utm_campaign IS NOT NULL"],
-    title: "Campaign Performance",
-    description: "Performance metrics by UTM campaign",
-    chartType: "bar",
-    chartConfig: {
-      barmode: 'group',
-      orientation: 'h'
-    }
-  },
-
-  {
-    id: "utm_source_medium",
-    table: "sessions",
-    dimensions: ["utm_source", "utm_medium"],
-    measures: ["session_count", "conversion_rate", "total_revenue"],
-    filters: ["_.utm_source IS NOT NULL", "_.utm_medium IS NOT NULL"],
-    title: "Source/Medium Performance",
-    description: "Performance by UTM source and medium combination",
-    chartType: "bar"
-  },
-
-  {
     id: "lifecycle_funnel",
     table: "sessions",
     dimensions: ["max_lifecycle_stage"],
-    measures: ["session_count", "unique_visitors"],
+    measures: ["unique_visitors"],
     filters: ["_.max_lifecycle_stage IN ('awareness', 'consideration', 'trial', 'activation', 'retention')"],
     title: "Lifecycle Funnel",
     description: "User progression through lifecycle stages",
@@ -108,44 +66,25 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
   },
 
   {
-    id: "post_activation_cohort_retention",
-    table: "sessions",
-    measures: [],
-    title: "Post-Activation Cohort Retention",
-    description: "Weekly retention by activation cohort (26 weeks)",
-    chartType: "heatmap"
-  },
-
-  {
     id: "sessions_over_time",
     table: "sessions",
     dimensions: ["session_date"],
-    measures: ["session_count", "unique_visitors", "conversion_rate"],
-    filters: ["_.session_date >= CURRENT_DATE - INTERVAL '12 weeks'"],
+    measures: ["unique_visitors"],
+    filters: ["_.session_date >= CURRENT_DATE - INTERVAL '12 weeks' AND _.is_customer"],
     title: "Session Trends (12 Weeks)",
-    description: "Weekly session patterns with conversion",
+    description: "Daily session patterns with conversion",
     chartType: "line"
   },
 
   {
-    id: "engagement_by_plan",
+    id: "plan_performance",
     table: "sessions",
     dimensions: ["plan_tier"],
-    measures: ["avg_session_duration", "avg_events_per_session"],
+    measures: ["unique_visitors", "total_revenue"],
     filters: ["_.plan_tier != ''", "_.plan_tier IS NOT NULL"],
-    title: "Engagement by Plan",
-    description: "Session duration and event activity by tier",
-    chartType: "bar"
-  },
-
-  {
-    id: "conversion_by_customer_status",
-    table: "sessions",
-    dimensions: ["is_customer"],
-    measures: ["session_count", "conversion_rate", "avg_revenue_per_session"],
-    title: "Customer vs Non-Customer Sessions",
-    description: "Session behavior comparison",
-    chartType: "bar"
+    title: "Plan Performance",
+    description: "Business Driven by Plan Tier",
+    chartType: "pie"
   }
 ];
 

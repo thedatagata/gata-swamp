@@ -2,6 +2,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { TableProfiler } from "../../../utils/services/table-profiler.ts";
 import { metadataStore } from "../../../utils/services/metadata-store.ts";
+import { createSemanticTables } from "../../../utils/smarter/semantic-amplitude.ts";
+import { WebLLMSemanticHandler } from "../../../utils/smarter/webllm-handler.ts";
 
 export interface LoadingProgress {
   step: "duckdb" | "semantic" | "webllm" | "complete";
@@ -48,17 +50,14 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
           message: "Materializing sessions data locally...",
         });
 
-        // Materialize sessions table using Arrow streaming
         const sessionsResult = await mdConn.evaluateStreamingQuery('SELECT * FROM my_db.amplitude.sessions_fct');
         const sessionsBatches = await sessionsResult.arrowStream.readAll();
         const Arrow = await import('apache-arrow');
         const sessionsArrow = new Arrow.Table(sessionsBatches);
 
-        // Get underlying DuckDB instance for local queries
         const duckdb = await getAsyncDuckDb();
         const localConn = await duckdb.connect();
 
-        // Insert sessions as local table (zero-latency queries)
         await localConn.insertArrowTable(sessionsArrow, { name: 'session_facts' });
 
         setLoading({
@@ -67,13 +66,11 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
           message: "Materializing users data locally...",
         });
 
-        // Materialize users table
         const usersResult = await mdConn.evaluateStreamingQuery('SELECT * FROM my_db.amplitude.users_fct');
         const usersBatches = await usersResult.arrowStream.readAll();
         const usersArrow = new Arrow.Table(usersBatches);
         await localConn.insertArrowTable(usersArrow, { name: 'users_dim' });
 
-        // Profile tables for WebLLM
         setLoading({
           step: "duckdb",
           progress: 48,
@@ -92,8 +89,8 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
         });
         
         if (await TableProfiler.needsProfiling("users_dim")) {
-              const usersMetadata = await TableProfiler.profileTable(localConn, "users_dim");
-              await metadataStore.saveTableMetadata("users_dim", usersMetadata);
+          const usersMetadata = await TableProfiler.profileTable(localConn, "users_dim");
+          await metadataStore.saveTableMetadata("users_dim", usersMetadata);
         }
 
         // Step 2: Initialize semantic layer
@@ -103,7 +100,6 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
           message: "Loading semantic layer...",
         });
 
-        const { createSemanticTables } = await import("../../../utils/semantic/semantic-amplitude.ts");
         const semanticTables = createSemanticTables(localConn);
 
         setLoading({
@@ -142,7 +138,6 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
         });
 
         // Step 4: Integrate WebLLM with semantic layer
-        const { WebLLMSemanticHandler } = await import("../../../utils/semantic/webllm-handler.ts");
         const llmHandler = new WebLLMSemanticHandler(semanticTables, "medium");
         await llmHandler.initialize();
 
@@ -154,7 +149,6 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
 
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Pass LOCAL connection - all queries run in browser
         onComplete(localConn, llmHandler);
       } catch (error) {
         console.error("Initialization failed:", error);

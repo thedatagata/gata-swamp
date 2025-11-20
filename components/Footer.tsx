@@ -10,7 +10,7 @@ export default function Footer() {
           <div class="space-y-4">
             <div class="flex items-center gap-2">
               <div class="w-10 h-10 rounded-full bg-[#90C137]/20 flex items-center justify-center">
-                <img src="/nerdy_alligator_headshot.png" alt="DATA_GATA Logo" class="h-6 w-6" />
+                <img src="/gata_app_utils/nerdy_alligator_headshot.png" alt="DATA_GATA Logo" class="h-6 w-6" />
               </div>
               <h3 class="text-xl font-bold text-[#F8F6F0]">
                 DATA_<span class="text-[#90C137]">GATA</span>

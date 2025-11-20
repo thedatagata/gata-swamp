@@ -5,7 +5,7 @@ export default function Hero() {
       {/* Background image with overlay */}
       <div class="absolute inset-0">
         <img
-          src="/nerdy_alligator_swamp.png"
+          src="/gata_app_utils/nerdy_alligator_swamp.png"
           alt="Data Swamp"
           class="w-full h-full object-cover opacity-30"
         />
@@ -72,7 +72,7 @@ export default function Hero() {
 
             <div class="flex flex-col md:flex-row gap-8 items-start">
               <img
-                src="/nerdy_alligator_headshot.png"
+                src="/gata_app_utils/nerdy_alligator_headshot.png"
                 alt="Nerdy Alligator"
                 class="w-40 h-40 md:w-64 md:h-64 object-cover rounded-lg shadow-2xl transform -rotate-3 border-4 border-[#90C137]"
               />

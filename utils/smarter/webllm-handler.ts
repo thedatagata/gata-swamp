@@ -46,6 +46,10 @@ export class WebLLMSemanticHandler {
     query: QueryResponse;
     data: any[];
   }> {
+    console.log("🤖 [WebLLM] Starting query generation...");
+    console.log("📝 [WebLLM] User prompt:", userPrompt);
+    console.log("📋 [WebLLM] System prompt length:", this.systemPrompt.length, "chars");
+    
     const completion = await this.engine.chat.completions.create({
       messages: [
         { role: "system", content: this.systemPrompt },
@@ -59,6 +63,7 @@ export class WebLLMSemanticHandler {
     });
 
     const responseText = completion.choices[0].message.content;
+    console.log("🔍 [WebLLM] Raw LLM response:", responseText);
 
     // Aggressive markdown stripping and JSON extraction
     let querySpec: QueryResponse;
@@ -70,7 +75,10 @@ export class WebLLMSemanticHandler {
         .replace(/[^}]*$/, "")
         .trim();
 
+      console.log("🧹 [WebLLM] Cleaned text:", cleanedText);
+      
       querySpec = JSON.parse(cleanedText);
+      console.log("✅ [WebLLM] Parsed query spec:", JSON.stringify(querySpec, null, 2));
 
       // Validate required fields
       if (!querySpec.table || !querySpec.measures || !Array.isArray(querySpec.measures)) {
@@ -78,37 +86,57 @@ export class WebLLMSemanticHandler {
       }
 
       querySpec.dimensions = querySpec.dimensions || [];
+      console.log("📊 [WebLLM] Query targets:", {
+        table: querySpec.table,
+        dimensions: querySpec.dimensions,
+        measures: querySpec.measures,
+        filters: querySpec.filters
+      });
     } catch (error) {
-      console.error("Raw LLM response:", responseText);
+      console.error("❌ [WebLLM] Parse error:", error.message);
+      console.error("❌ [WebLLM] Failed text:", responseText);
       throw new Error(`Failed to parse WebLLM response: ${error.message}`);
     }
 
     // Validate dimensions/measures exist in semantic layer
     const table = this.semanticTables[querySpec.table];
     const metadata = table.getMetadata();
+    
+    console.log("🔎 [WebLLM] Validating against semantic layer...");
+    console.log("📚 [WebLLM] Available dimensions:", Object.keys(metadata.dimensions));
+    console.log("📊 [WebLLM] Available measures:", Object.keys(metadata.measures));
 
     querySpec.dimensions?.forEach((dim) => {
       if (!metadata.dimensions[dim]) {
+        console.error(`❌ [WebLLM] Unknown dimension: ${dim}`);
         throw new Error(
           `Unknown dimension: ${dim}. Available: ${Object.keys(metadata.dimensions).join(", ")}`,
         );
       }
+      console.log(`✅ [WebLLM] Dimension validated: ${dim}`);
     });
 
     querySpec.measures?.forEach((measure) => {
       if (!metadata.measures[measure]) {
+        console.error(`❌ [WebLLM] Unknown measure: ${measure}`);
         throw new Error(
           `Unknown measure: ${measure}. Available: ${Object.keys(metadata.measures).join(", ")}`,
         );
       }
+      console.log(`✅ [WebLLM] Measure validated: ${measure}`);
     });
 
+    console.log("🚀 [WebLLM] Executing query...");
+    
     // Execute query using semantic layer
     const data = await table.query({
       dimensions: querySpec.dimensions,
       measures: querySpec.measures,
       filters: querySpec.filters,
     });
+
+    console.log(`✅ [WebLLM] Query executed successfully! Rows returned: ${data.length}`);
+    console.log("📦 [WebLLM] Sample data (first row):", data[0]);
 
     return { query: querySpec, data };
   }

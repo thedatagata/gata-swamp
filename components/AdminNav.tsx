@@ -9,7 +9,7 @@ export default function AdminNav() {
               <a href="/" class="flex items-center space-x-2">
                 <div class="w-8 h-8 rounded-full overflow-hidden border-2 border-[#90C137]">
                   <img
-                    src="/nerdy_alligator_headshot.png"
+                    src="/gata_app_utils/nerdy_alligator_headshot.png"
                     alt="DATA_GATA Logo"
                     class="w-full h-full object-cover"
                   />

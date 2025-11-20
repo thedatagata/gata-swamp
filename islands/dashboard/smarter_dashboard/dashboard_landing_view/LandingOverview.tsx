@@ -2,8 +2,8 @@
 // islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx
 import { useEffect, useState } from "preact/hooks";
 import KPICard from "../../../../components/charts/KPICard.tsx";
-import { getModelConfig } from "../../../../utils/semantic/semantic-config.ts";
-import { getSessionsKPIs, getUsersKPIs } from "../../../../utils/semantic/kpi-queries.ts";
+import { getModelConfig } from "../../../../utils/smarter/semantic-config.ts";
+import { getSessionsKPIs, getUsersKPIs } from "../../../../utils/smarter/kpi-queries.ts";
 
 function uint8ArrayToNumber(arr: Uint8Array): number {
   const view = new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
