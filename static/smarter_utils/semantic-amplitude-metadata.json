@@ -423,6 +423,40 @@
       "currency": "USD",
       "decimals": 2
     },
+    "revenue_last_30d": {
+      "column": "session_revenue",
+      "aggregations": ["sum"],
+      "formula": "SUM(CASE WHEN session_date >= CURRENT_DATE - INTERVAL '30 days' THEN session_revenue ELSE 0 END)",
+      "description": "Revenue from last 30 days",
+      "format": "currency",
+      "currency": "USD",
+      "decimals": 2
+    },
+    "revenue_prev_30d": {
+      "column": "session_revenue",
+      "aggregations": ["sum"],
+      "formula": "SUM(CASE WHEN session_date >= CURRENT_DATE - INTERVAL '60 days' AND session_date < CURRENT_DATE - INTERVAL '30 days' THEN session_revenue ELSE 0 END)",
+      "description": "Revenue from 30-60 days ago",
+      "format": "currency",
+      "currency": "USD",
+      "decimals": 2
+    },
+    "sessions_last_30d": {
+      "column": null,
+      "aggregations": ["sum"],
+      "formula": "SUM(CASE WHEN session_date >= CURRENT_DATE - INTERVAL '30 days' THEN 1 ELSE 0 END)",
+      "description": "Session count from last 30 days",
+      "format": "number",
+      "decimals": 0
+    },
+    "sessions_prev_30d": {
+      "column": null,
+      "aggregations": ["sum"],
+      "formula": "SUM(CASE WHEN session_date >= CURRENT_DATE - INTERVAL '60 days' AND session_date < CURRENT_DATE - INTERVAL '30 days' THEN 1 ELSE 0 END)",
+      "description": "Session count from 30-60 days ago",
+      "format": "number",
+      "decimals": 0
+    },
     "avg_revenue_per_session": {
       "column": "session_revenue",
       "aggregations": ["avg"],

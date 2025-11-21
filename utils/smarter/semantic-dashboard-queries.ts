@@ -19,20 +19,20 @@ export interface DashboardQuery {
  */
 export const sessionsDashboardQueries: DashboardQuery[] = [
   {
-    id: "sessions_total_revenue",
+    id: "revenue_comparison",
     table: "sessions",
-    title: "Total Revenue",
+    title: "Revenue Comparison",
     dimensions: [],
-    measures: ["total_revenue"],
+    measures: ["revenue_last_30d", "revenue_prev_30d"],
     filters: null,
     chartType: "kpi"
   },
   {
-    id: "sessions_count_kpi",
+    id: "sessions_comparison",
     table: "sessions",
-    title: "Sessions Count",
+    title: "Sessions Comparison",
     dimensions: [],
-    measures: ["session_count"],
+    measures: ["sessions_last_30d", "sessions_prev_30d"],
     filters: null,
     chartType: "kpi"
   },

@@ -49,6 +49,7 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
   const [querySpec, setQuerySpec] = useState<any>(null);
   const [sqlGenerating, setSqlGenerating] = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [generatedChart, setGeneratedChart] = useState<any>(null);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -85,7 +86,7 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
         setKpiData(kpis);
         setChartData(charts);
 
-        // Build column metadata from semantic layer instead of profiled data
+        // Build column metadata from semantic layer
         const usersConfig = getModelConfig("users");
         const semanticFields = [
           ...Object.entries(usersConfig.dimensions).map(([key, config]: [string, any]) => ({
@@ -130,9 +131,9 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
     if (!promptInput.trim() || !webllmEngine) return;
     setSqlGenerating(true);
     setError(null);
+    setGeneratedChart(null);
     
     try {
-      // Execute query directly - no preview needed
       const { query, data, metrics } = await webllmEngine.generateQuery(promptInput, "users");
       
       console.log('✅ Query executed:', { 
@@ -145,8 +146,23 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
       setGeneratedSQL(query.sql);
       setSqlExplanation(query.explanation);
       
-      // TODO: Generate chart from data
-      console.log('📊 Data ready for visualization:', data.slice(0, 3));
+      // Generate chart from data
+      if (data.length > 0) {
+        const chartConfig = generateDashboardChartConfig(
+          {
+            dimensions: query.dimensions,
+            measures: query.measures,
+            chartType: 'bar',
+            title: promptInput
+          },
+          data
+        );
+        
+        if (chartConfig) {
+          setGeneratedChart(chartConfig);
+          console.log('📊 Chart generated:', chartConfig.type);
+        }
+      }
       
     } catch (error) {
       console.error("Failed to execute query:", error);
@@ -320,6 +336,12 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
                 <p class="text-gata-cream/90 text-sm">{sqlExplanation}</p>
               </div>
             )}
+            {generatedChart && (
+              <div>
+                <h4 class="font-semibold text-gata-cream mb-3">📊 Generated Chart:</h4>
+                <FreshChartsWrapper config={generatedChart} height={400} loading={false} />
+              </div>
+            )}
             <div class="flex gap-3">
               <button
                 onClick={() => querySpec && onExecuteQuery(querySpec)}
@@ -332,6 +354,7 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
                   setGeneratedSQL("");
                   setSqlExplanation("");
                   setQuerySpec(null);
+                  setGeneratedChart(null);
                 }}
                 class="px-6 py-2 bg-gata-dark/60 text-gata-cream border border-gata-green/30 rounded-lg font-medium hover:bg-gata-dark/80"
               >

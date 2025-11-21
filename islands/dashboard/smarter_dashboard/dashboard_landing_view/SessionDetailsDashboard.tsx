@@ -225,15 +225,15 @@ export default function SessionDetailsDashboard({
 
   const sessionsConfig = getModelConfig("sessions");
   
-  // Revenue KPI
-  const revenueCurrent = getKPIValue('sessions_total_revenue', 'total_revenue');
-  const revenuePrevious = 0; // No period comparison in semantic layer
-  const revenueGrowth = 0;
+  // Revenue KPI with period comparison
+  const revenueCurrent = getKPIValue('revenue_comparison', 'revenue_last_30d');
+  const revenuePrevious = getKPIValue('revenue_comparison', 'revenue_prev_30d');
+  const revenueGrowth = revenuePrevious > 0 ? ((revenueCurrent - revenuePrevious) / revenuePrevious) * 100 : 0;
   
-  // Sessions Count KPI
-  const sessionsCurrent = getKPIValue('sessions_count_kpi', 'session_count');
-  const sessionsPrevious = 0;
-  const sessionsGrowth = 0;
+  // Sessions Count KPI with period comparison
+  const sessionsCurrent = getKPIValue('sessions_comparison', 'sessions_last_30d');
+  const sessionsPrevious = getKPIValue('sessions_comparison', 'sessions_prev_30d');
+  const sessionsGrowth = sessionsPrevious > 0 ? ((sessionsCurrent - sessionsPrevious) / sessionsPrevious) * 100 : 0;
   
   // New vs Returning KPI
   const newVsReturningCurrent = getKPIValue('new_vs_returning', 'new_visitor_sessions');
