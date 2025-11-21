@@ -6,7 +6,6 @@ import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitu
 import { usersDashboardQueries } from "../../../../utils/smarter/semantic-dashboard-queries.ts";
 import { generateDashboardChartConfig } from "../../../../utils/smarter/dashboard-chart-generator.ts";
 import { getModelConfig } from "../../../../utils/smarter/semantic-config.ts";
-import { metadataStore } from "../../../../utils/services/metadata-store.ts";
 
 function uint8ArrayToNumber(arr: Uint8Array): number {
   let result = 0;
@@ -86,9 +85,37 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
         setKpiData(kpis);
         setChartData(charts);
 
-        // Load column metadata
-        const columns = await metadataStore.getTableMetadata("users_dim");
-        setColumnsMetadata(columns);
+        // Build column metadata from semantic layer instead of profiled data
+        const usersConfig = getModelConfig("users");
+        const semanticFields = [
+          ...Object.entries(usersConfig.dimensions).map(([key, config]: [string, any]) => ({
+            column_name: key,
+            type: 'DIMENSION',
+            description: config.transformation || config.column,
+            isNumeric: false,
+            isDate: config.column?.includes('date'),
+            isBoolean: false,
+            uniqueCount: null,
+            nullPercentage: null,
+            minValue: null,
+            maxValue: null,
+            meanValue: null
+          })),
+          ...Object.entries(usersConfig.measures).map(([key, config]: [string, any]) => ({
+            column_name: key,
+            type: 'MEASURE',
+            description: config.description,
+            isNumeric: true,
+            isDate: false,
+            isBoolean: false,
+            uniqueCount: null,
+            nullPercentage: null,
+            minValue: null,
+            maxValue: null,
+            meanValue: null
+          }))
+        ];
+        setColumnsMetadata(semanticFields);
       } catch (err) {
         console.error("Dashboard load error:", err);
         setError(err.message);
@@ -102,14 +129,28 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
   const handleGenerateSQL = async () => {
     if (!promptInput.trim() || !webllmEngine) return;
     setSqlGenerating(true);
+    setError(null);
+    
     try {
-      const result = await webllmEngine.generateSQLPreview(promptInput);
-      setGeneratedSQL(result.sql);
-      setSqlExplanation(result.explanation);
-      setQuerySpec(result.querySpec || null);
+      // Execute query directly - no preview needed
+      const { query, data, metrics } = await webllmEngine.generateQuery(promptInput, "users");
+      
+      console.log('✅ Query executed:', { 
+        dimensions: query.dimensions, 
+        measures: query.measures,
+        rows: data.length,
+        attempts: metrics.attemptCount
+      });
+      
+      setGeneratedSQL(query.sql);
+      setSqlExplanation(query.explanation);
+      
+      // TODO: Generate chart from data
+      console.log('📊 Data ready for visualization:', data.slice(0, 3));
+      
     } catch (error) {
-      console.error("Failed to generate SQL:", error);
-      setSqlExplanation(`Error: ${error.message}`);
+      console.error("Failed to execute query:", error);
+      setError(`Query failed: ${error.message}`);
     } finally {
       setSqlGenerating(false);
     }
@@ -125,8 +166,9 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
   };
 
   const usersConfig = getModelConfig("users");
-  const totalLTV = getKPIValue('users_total_revenue', 'total_ltv');
-  const payingCustomers = getKPIValue('users_total_customers', 'paying_customers');
+  const totalLTV = getKPIValue('users_total_revenue', 'total_revenue');
+  const payingCustomers = getKPIValue('paying_customers_kpi', 'paying_customers');
+  const activeUsers = getKPIValue('active_users_kpi', 'active_users_30d');
 
   if (error) {
     return (
@@ -170,9 +212,8 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
             <div>
               <p class="font-medium text-gata-cream mb-1">Key Measures:</p>
               <ul class="text-gata-cream/80 space-y-1">
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">total_ltv</code> - Total lifetime value</li>
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">avg_ltv</code> - Average LTV per user</li>
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">active_users</code> - Active user count</li>
+                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">total_revenue</code> - Total lifetime value</li>
+                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">active_users_30d</code> - Active user count</li>
                 <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">paying_customers</code> - Paying customers</li>
               </ul>
             </div>
@@ -180,40 +221,37 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
         </div>
       )}
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KPICard title="Total LTV" value={totalLTV} format="currency" decimals={0} loading={loading} />
         <KPICard title="Paying Customers" value={payingCustomers} format="number" loading={loading} />
+        <KPICard title="Active Users (30d)" value={activeUsers} format="number" loading={loading} />
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {chartData['lifecycle_distribution']?.config && (
           <FreshChartsWrapper config={chartData['lifecycle_distribution'].config} height={400} loading={loading} />
         )}
-        {chartData['ltv_by_plan']?.config && (
-          <FreshChartsWrapper config={chartData['ltv_by_plan'].config} height={400} loading={loading} />
+        {chartData['acquisition_performance']?.config && (
+          <FreshChartsWrapper config={chartData['acquisition_performance'].config} height={400} loading={loading} />
         )}
-        {chartData['cohort_retention']?.config && (
+        {chartData['plan_distribution']?.config && (
           <div class="lg:col-span-2">
-            <FreshChartsWrapper config={chartData['cohort_retention'].config} height={400} loading={loading} />
+            <FreshChartsWrapper config={chartData['plan_distribution'].config} height={400} loading={loading} />
           </div>
         )}
       </div>
 
       <div class="bg-gata-dark/60 border border-gata-green/20 rounded-lg p-6 shadow-sm backdrop-blur-sm">
-        <h3 class="text-lg font-semibold text-gata-cream mb-4">📋 Column Metadata</h3>
+        <h3 class="text-lg font-semibold text-gata-cream mb-4">📋 Semantic Layer Fields</h3>
         {columnsMetadata && columnsMetadata.length > 0 ? (
           <div class="bg-gata-dark/40 rounded-lg overflow-hidden">
             <div class="overflow-x-auto max-h-96">
               <table class="min-w-full text-sm">
                 <thead class="bg-gata-green/20 border-b border-gata-green/30 sticky top-0">
                   <tr>
-                    <th class="px-4 py-2 text-left font-semibold text-gata-cream">Column</th>
+                    <th class="px-4 py-2 text-left font-semibold text-gata-cream">Field</th>
                     <th class="px-4 py-2 text-left font-semibold text-gata-cream">Type</th>
-                    <th class="px-4 py-2 text-right font-semibold text-gata-cream">Unique</th>
-                    <th class="px-4 py-2 text-right font-semibold text-gata-cream">Null %</th>
-                    <th class="px-4 py-2 text-left font-semibold text-gata-cream">Min</th>
-                    <th class="px-4 py-2 text-left font-semibold text-gata-cream">Max</th>
-                    <th class="px-4 py-2 text-right font-semibold text-gata-cream">Mean</th>
+                    <th class="px-4 py-2 text-left font-semibold text-gata-cream">Definition</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gata-green/20">
@@ -222,25 +260,12 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
                       <td class="px-4 py-2 font-medium text-gata-cream">{col.column_name}</td>
                       <td class="px-4 py-2 text-gata-cream/80">
                         <span class={`inline-flex px-2 py-1 rounded text-xs font-medium ${
-                          col.isNumeric ? 'bg-blue-900/40 text-blue-300' :
-                          col.isDate ? 'bg-green-900/40 text-green-300' :
-                          col.isBoolean ? 'bg-purple-900/40 text-purple-300' :
-                          'bg-gata-dark/60 text-gata-cream/70'
+                          col.type === 'MEASURE' ? 'bg-blue-900/40 text-blue-300' : 'bg-green-900/40 text-green-300'
                         }`}>
                           {col.type}
                         </span>
                       </td>
-                      <td class="px-4 py-2 text-right text-gata-cream/80">{col.uniqueCount?.toLocaleString() || '-'}</td>
-                      <td class="px-4 py-2 text-right text-gata-cream/80">{col.nullPercentage?.toFixed(1) || '0.0'}%</td>
-                      <td class="px-4 py-2 text-gata-cream/80 truncate max-w-[120px]" title={String(col.minValue || '-')}>
-                        {col.minValue !== undefined ? String(col.minValue) : '-'}
-                      </td>
-                      <td class="px-4 py-2 text-gata-cream/80 truncate max-w-[120px]" title={String(col.maxValue || '-')}>
-                        {col.maxValue !== undefined ? String(col.maxValue) : '-'}
-                      </td>
-                      <td class="px-4 py-2 text-right text-gata-cream/80">
-                        {col.meanValue !== undefined ? col.meanValue.toFixed(2) : '-'}
-                      </td>
+                      <td class="px-4 py-2 text-gata-cream/80 text-xs">{col.description}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -249,7 +274,7 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
           </div>
         ) : (
           <div class="bg-gata-dark/40 rounded-lg p-4 text-sm text-gata-cream/70">
-            {loading ? 'Loading column metadata...' : 'No column metadata available'}
+            {loading ? 'Loading fields...' : 'No fields available'}
           </div>
         )}
       </div>
