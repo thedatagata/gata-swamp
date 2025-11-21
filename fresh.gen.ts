@@ -16,6 +16,7 @@ import * as $index from "./routes/index.tsx";
 import * as $app_utils_ScrollToTop from "./islands/app_utils/ScrollToTop.tsx";
 import * as $charts_AutoChart from "./islands/charts/AutoChart.tsx";
 import * as $charts_FunnelChart from "./islands/charts/FunnelChart.tsx";
+import * as $dashboard_smarter_dashboard_CacheManagementModal from "./islands/dashboard/smarter_dashboard/CacheManagementModal.tsx";
 import * as $dashboard_smarter_dashboard_SmartDashLoadingPage from "./islands/dashboard/smarter_dashboard/SmartDashLoadingPage.tsx";
 import * as $dashboard_smarter_dashboard_dashboard_landing_view_LandingOverview from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx";
 import * as $dashboard_smarter_dashboard_dashboard_landing_view_LandingPageDashboard from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingPageDashboard.tsx";
@@ -48,6 +49,8 @@ const manifest = {
     "./islands/app_utils/ScrollToTop.tsx": $app_utils_ScrollToTop,
     "./islands/charts/AutoChart.tsx": $charts_AutoChart,
     "./islands/charts/FunnelChart.tsx": $charts_FunnelChart,
+    "./islands/dashboard/smarter_dashboard/CacheManagementModal.tsx":
+      $dashboard_smarter_dashboard_CacheManagementModal,
     "./islands/dashboard/smarter_dashboard/SmartDashLoadingPage.tsx":
       $dashboard_smarter_dashboard_SmartDashLoadingPage,
     "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx":

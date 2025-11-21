@@ -23,6 +23,13 @@ export default function DashboardRouter({ motherDuckToken, sessionId }: Dashboar
     setSmartDashInitialized(true);
   };
 
+  // Handle upgrade from Starter to Smarter
+  const handleUpgrade = () => {
+    console.log('🚀 User upgrading to Smarter Dashboard');
+    setSelectedPlan('smarter');
+    setSmartDashInitialized(false); // Reset to trigger loading page
+  };
+
   if (!selectedPlan) {
     return <PlanSelection onSelectPlan={setSelectedPlan} />;
   }
@@ -35,9 +42,9 @@ export default function DashboardRouter({ motherDuckToken, sessionId }: Dashboar
             <div class="flex justify-between items-center py-4">
               <a href="/app/dashboard" class="flex items-center space-x-2">
                 <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-[#90C137]">
-                  <img 
-                    src="/nerdy_alligator_headshot.png" 
-                    alt="DATA_GATA Logo" 
+                  <img
+                    src="/gata_app_utils/nerdy_alligator_headshot.png"
+                    alt="DATA_GATA Logo"
                     class="w-full h-full object-cover"
                   />
                 </div>
@@ -62,6 +69,7 @@ export default function DashboardRouter({ motherDuckToken, sessionId }: Dashboar
           <BaseDashboard 
             motherDuckToken={motherDuckToken}
             sessionId={sessionId}
+            onUpgrade={handleUpgrade}
           />
         </main>
       </div>

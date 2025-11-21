@@ -2,13 +2,21 @@
 import type { ColumnMetadata } from "./table-profiler.ts";
 
 const DB_NAME = "dasgata_metadata";
-const DB_VERSION = 2; // ← Bumped from 1 to 2
+const DB_VERSION = 2;
 const STORE_NAME = "table_profiles";
+const MAX_CACHED_TABLES = 5; // ← Cache limit
 
 interface TableProfile {
   table_name: string;
   columns: ColumnMetadata[];
   createdAt: number;
+}
+
+export interface CacheStatus {
+  count: number;
+  limit: number;
+  isAtLimit: boolean;
+  tables: Array<{ name: string; createdAt: number }>;
 }
 
 class MetadataStore {
@@ -27,17 +35,70 @@ class MetadataStore {
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         
-        // Delete old store if it exists
         if (db.objectStoreNames.contains(STORE_NAME)) {
           db.deleteObjectStore(STORE_NAME);
         }
         
-        // Create new store with correct schema
         const store = db.createObjectStore(STORE_NAME, { keyPath: "table_name" });
         store.createIndex("table_name", "table_name", { unique: true });
         store.createIndex("createdAt", "createdAt", { unique: false });
       };
     });
+  }
+
+  /**
+   * Get current cache status
+   */
+  async getCacheStatus(): Promise<CacheStatus> {
+    const profiles = await this.getAllTableMetadata();
+    
+    return {
+      count: profiles.length,
+      limit: MAX_CACHED_TABLES,
+      isAtLimit: profiles.length >= MAX_CACHED_TABLES,
+      tables: profiles
+        .map(p => ({ name: p.table_name, createdAt: p.createdAt }))
+        .sort((a, b) => b.createdAt - a.createdAt) // newest first
+    };
+  }
+
+  /**
+   * Check if cache is at limit
+   */
+  async isAtCacheLimit(): Promise<boolean> {
+    const profiles = await this.getAllTableMetadata();
+    return profiles.length >= MAX_CACHED_TABLES;
+  }
+
+  /**
+   * Delete oldest cached table
+   */
+  async deleteOldestTable(): Promise<string | null> {
+    const profiles = await this.getAllTableMetadata();
+    
+    if (profiles.length === 0) return null;
+    
+    // Find oldest table
+    const oldest = profiles.reduce((prev, current) => 
+      current.createdAt < prev.createdAt ? current : prev
+    );
+    
+    await this.deleteTableMetadata(oldest.table_name);
+    return oldest.table_name;
+  }
+
+  /**
+   * Auto-cleanup: delete oldest if at limit
+   */
+  async autoCleanupIfNeeded(): Promise<string | null> {
+    const isAtLimit = await this.isAtCacheLimit();
+    
+    if (isAtLimit) {
+      console.log('⚠️ Cache limit reached, auto-deleting oldest table');
+      return await this.deleteOldestTable();
+    }
+    
+    return null;
   }
 
   async saveTableMetadata(tableName: string, columns: ColumnMetadata[]): Promise<void> {
@@ -49,6 +110,22 @@ class MetadataStore {
 
     if (columns.length === 0) {
       throw new Error("Cannot save empty column metadata");
+    }
+
+    // Check if table already exists (updates don't count against limit)
+    const existing = await this.getTableMetadata(tableName);
+    
+    // If new table and at limit, throw error
+    if (!existing) {
+      const isAtLimit = await this.isAtCacheLimit();
+      if (isAtLimit) {
+        const status = await this.getCacheStatus();
+        throw new Error(
+          `CACHE_LIMIT_EXCEEDED: Maximum ${MAX_CACHED_TABLES} tables cached. ` +
+          `Please clear some tables before caching new ones. ` +
+          `Current tables: ${status.tables.map(t => t.name).join(', ')}`
+        );
+      }
     }
 
     const profile: TableProfile = {

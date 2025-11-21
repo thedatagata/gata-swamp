@@ -9,9 +9,9 @@ export default function NotFoundPage() {
       </Head>
       <div class="min-h-screen flex flex-col items-center justify-center bg-[#172217] text-[#F8F6F0] p-4">
         <div class="w-24 h-24 mb-6 relative">
-          <img 
-            src="/nerdy_alligator_headshot.png" 
-            alt="DATA_GATA Logo" 
+          <img
+            src="/gata_app_utils/nerdy_alligator_headshot.png"
+            alt="DATA_GATA Logo"
             class="w-full h-full object-cover rounded-full border-4 border-[#90C137]"
           />
           <div class="absolute -bottom-2 -right-2 bg-[#90C137] text-[#172217] w-10 h-10 rounded-full flex items-center justify-center font-bold text-xl">

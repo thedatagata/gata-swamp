@@ -166,6 +166,16 @@ export function buildReportFromSQL(userSQL: string) {
 }
 
 /**
+ * Check if error message is a 1MB limit error
+ */
+export function is1MBLimitError(errorMessage: string): boolean {
+  return errorMessage?.includes('⚠️ **Your query exceeded the 1MB data limit**') ||
+         errorMessage?.includes('too large') ||
+         errorMessage?.includes('1MB') ||
+         errorMessage?.includes('exceeds');
+}
+
+/**
  * Handle 1MB limit error with upgrade upsell
  */
 export function handle1MBLimitError(): string {
@@ -183,6 +193,6 @@ Your analysis needs more power than the current plan allows.
 **Quick fix for now:**
 Add lookback filters or a LIMIT clause to your sql prompt to reduce data size.
 
-**Ready to upgrade?** Visit your account settings to unlock Pro features.
+**Ready to upgrade?** Click the button below to switch to the Smarter Dashboard.
   `.trim();
 }

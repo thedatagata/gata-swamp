@@ -6,14 +6,16 @@ import FieldCatalog from "./FieldCatalog.tsx";
 import { sanitizeQueryData } from "./data-utils.ts";
 import { 
   buildReportFromSQL, 
-  handle1MBLimitError 
+  handle1MBLimitError,
+  is1MBLimitError
 } from "../../../utils/starter/pivot-query-builder.ts";
 
 interface BaseDashboardWizardProps {
   motherDuckToken: string;
+  onUpgrade?: () => void;
 }
 
-export default function BaseDashboardWizard({ motherDuckToken }: BaseDashboardWizardProps) {
+export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: BaseDashboardWizardProps) {
   const [client, setClient] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -158,6 +160,31 @@ export default function BaseDashboardWizard({ motherDuckToken }: BaseDashboardWi
     setPivotReport(null); // Clear pivot to hide component
   }
 
+  // Render error message with optional upgrade button
+  function renderError() {
+    if (!error) return null;
+    
+    const isLimitError = is1MBLimitError(error);
+    
+    return (
+      <div class="mb-4 p-4 bg-rose-950/30 border border-rose-400/50 rounded-lg">
+        <p class="text-sm font-semibold text-rose-200 mb-2">Error</p>
+        <pre class="text-sm text-rose-100 whitespace-pre-wrap mb-4">{error}</pre>
+        
+        {isLimitError && onUpgrade && (
+          <button
+            onClick={onUpgrade}
+            class="w-full py-3 px-6 bg-gradient-to-r from-[#90C137] to-[#a0d147] text-[#172217] rounded-lg font-semibold hover:from-[#a0d147] hover:to-[#b0e157] transition-all shadow-lg flex items-center justify-center gap-2"
+          >
+            <span class="text-xl">✨</span>
+            <span>Upgrade to Smarter Dashboard Now</span>
+            <span class="text-xl">🚀</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div class="max-w-7xl mx-auto p-6 space-y-6">
       
@@ -238,13 +265,8 @@ export default function BaseDashboardWizard({ motherDuckToken }: BaseDashboardWi
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <div class="mb-4 p-4 bg-rose-950/30 border border-rose-400/50 rounded-lg">
-            <p class="text-sm font-semibold text-rose-200 mb-2">Error</p>
-            <pre class="text-sm text-rose-100 whitespace-pre-wrap">{error}</pre>
-          </div>
-        )}
+        {/* Error with upgrade button */}
+        {renderError()}
 
         {/* SQL Input */}
         <div class="space-y-4">
@@ -292,13 +314,8 @@ export default function BaseDashboardWizard({ motherDuckToken }: BaseDashboardWi
             </div>
           )}
 
-          {/* Error */}
-          {error && (
-            <div class="p-4 bg-rose-950/30 border border-rose-400/50 rounded-lg">
-              <p class="text-sm font-semibold text-rose-200 mb-2">Error</p>
-              <pre class="text-sm text-rose-100 whitespace-pre-wrap">{error}</pre>
-            </div>
-          )}
+          {/* Error with upgrade button */}
+          {renderError()}
 
       {/* Query Results Preview */}
       {queryResults.length > 0 && (

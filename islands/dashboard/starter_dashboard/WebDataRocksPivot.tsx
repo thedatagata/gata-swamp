@@ -31,17 +31,17 @@ export default function WebDataRocksPivot({
       // Load CSS
       const cssLink = document.createElement('link');
       cssLink.rel = 'stylesheet';
-      cssLink.href = '/webdatarocks.min.css';
+      cssLink.href = '/starter_utils/webdatarocks.min.css';
       document.head.appendChild(cssLink);
 
       // Load toolbar JS
       const toolbarScript = document.createElement('script');
-      toolbarScript.src = '/webdatarocks.toolbar.min.js';
+      toolbarScript.src = '/starter_utils/webdatarocks.toolbar.min.js';
       document.head.appendChild(toolbarScript);
 
       // Load main WebDataRocks JS
       const mainScript = document.createElement('script');
-      mainScript.src = '/webdatarocks.js';
+      mainScript.src = '/starter_utils/webdatarocks.js';
       document.head.appendChild(mainScript);
 
       await new Promise((resolve) => {
@@ -137,7 +137,7 @@ export default function WebDataRocksPivot({
         console.error('❌ Data load timeout - likely exceeded 1MB limit');
         onLoadError('Data load timeout - likely exceeded 1MB limit');
       }
-    }, 10000);
+    }, 3000);
 
     // Simple reportcomplete handler
     pivotRef.current.on('reportcomplete', function() {
