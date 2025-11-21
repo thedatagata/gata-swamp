@@ -1,9 +1,9 @@
 // islands/dashboard/smarter_dashboard/semantic_dashboard/AutoVisualizationExperience.tsx
 import { useEffect, useState } from "preact/hooks";
 import { WebLLMSemanticHandler } from "../../../../utils/smarter/webllm-handler.ts";
-import { createSemanticTable } from "../../../../utils/smarter/semantic-amplitude.ts";
-import { autoGenerateChart } from "../../../../utils/smarter/chart-generator.ts";
-import { getSemanticConfig } from "../../../../utils/smarter/semantic-config.ts";
+import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitude.ts";
+import { generateChartFromAnalysis } from "../../../../utils/smarter/chart-generator.ts";
+import { getSemanticMetadata } from "../../../../utils/smarter/semantic-config.ts";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
 import type { ChartConfig } from "../../../../utils/smarter/chart-generator.ts";
 
@@ -33,14 +33,12 @@ export default function AutoVisualizationExperience({
   const [refining, setRefining] = useState(false);
   const [dataAnalysis, setDataAnalysis] = useState<string>("");
 
-  const semanticConfig = getSemanticConfig();
-
   // Initialize WebLLM
   useEffect(() => {
     async function initWebLLM() {
       try {
-        const table = createSemanticTable(db);
-        const llmHandler = new WebLLMSemanticHandler(table, "large");
+        const tables = createSemanticTables(db);
+        const llmHandler = new WebLLMSemanticHandler(tables, "large");
 
         await llmHandler.initialize((progress) => {
           console.log("WebLLM initialization:", progress);
@@ -51,7 +49,7 @@ export default function AutoVisualizationExperience({
 
         // If we have querySpec (from details page Execute), run it directly
         if (querySpec) {
-          executeQuerySpec(querySpec, table);
+          executeQuerySpec(querySpec, tables);
         }
         // If we have an initial query string, run it
         else if (initialQuery) {
@@ -111,11 +109,12 @@ export default function AutoVisualizationExperience({
   useEffect(() => {
     if (result && result.data.length > 0) {
       try {
-        const { chartConfig, detection } = autoGenerateChart(
+        const semanticConfig = getSemanticMetadata(result.query.table);
+        const chartResult = generateChartFromAnalysis(
           result.query,
-          result.data,
-          semanticConfig,
+          result.data
         );
+        const chartConfig = chartResult.chartConfig;
         setChartConfig(chartConfig);
 
         // Generate data analysis

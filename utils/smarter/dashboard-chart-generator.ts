@@ -1,7 +1,7 @@
 // utils/semantic/dashboard-chart-generator.ts
 import type { ChartConfig } from "./chart-generator.ts";
 import { detectChartType } from "./auto-chart-detector.ts";
-import { getSemanticConfig } from "./semantic-config.ts";
+import { getSemanticMetadata } from "./semantic-config.ts";
 
 const COLOR_PALETTE = [
   '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c',
@@ -66,9 +66,9 @@ export function generateDashboardChartConfig(
   const sanitizedData = sanitizeData(data);
   console.log('Sanitized data:', sanitizedData);
 
-  const semanticConfig = getSemanticConfig();
+  const semanticConfig = getSemanticMetadata(query.table);
   
-  if (!semanticConfig[query.table]) {
+  if (!semanticConfig) {
     throw new Error(`Table ${query.table} not found in semantic config`);
   }
 
@@ -137,7 +137,7 @@ export function generateDashboardChartConfig(
     }));
   }
 
-  const modelConfig = semanticConfig[query.table];
+  const modelConfig = semanticConfig;
   const format: any = {};
   
   yKeys.forEach(measure => {
@@ -155,7 +155,7 @@ export function generateDashboardChartConfig(
 
   const title = query.title || generateTitle(yKeys, query.dimensions);
 
-  const config: RechartsConfig = {
+  const config: ChartConfig = {
     type: detection.type,
     title,
     xKey,

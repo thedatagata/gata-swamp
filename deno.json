@@ -9,7 +9,7 @@
     "$fresh_charts/": "https://deno.land/x/fresh_charts@0.3.1/",
     "chart.js": "npm:chart.js@^4.4.1",
     "chartjs-chart-funnel": "npm:chartjs-chart-funnel@^4.1.2",
-    "@mlc-ai/web-llm": "npm:@mlc-ai/web-llm@0.2.72",
+    "@mlc-ai/web-llm": "npm:@mlc-ai/web-llm@0.2.79",
     "@duckdb/duckdb-wasm": "npm:@duckdb/duckdb-wasm@1.30.0",
     "@motherduck/wasm-client": "npm:@motherduck/wasm-client@^0.7.0",
     "apache-arrow": "npm:apache-arrow@^21.1.0",

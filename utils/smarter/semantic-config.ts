@@ -1,37 +1,38 @@
-// utils/smarter/semantic-amplitude-pivot-config.ts
-import semanticMetadata from "../../static/smarter_utils/semantic-amplitude-metadata.json" with { type: "json" };
+// utils/smarter/semantic-config.ts
+import sessionsMetadata from "../../static/smarter_utils/semantic-amplitude-metadata.json" with { type: "json" };
+import usersMetadata from "../../static/smarter_utils/semantic-users-metadata.json" with { type: "json" };
 
 /**
  * Field metadata - complete information about each column
  */
 export interface FieldMetadata {
   description: string;
-  md_data_type: string; // VARCHAR, INTEGER, BIGINT, BOOLEAN, DECIMAL, DATE, TIMESTAMP
-  ingest_data_type: string; // string, integer, number, Uint8Array, date, timestamp
-  sanitize: boolean; // Whether field needs data type transformation
+  md_data_type: string;
+  ingest_data_type: string;
+  sanitize: boolean;
   data_type_category: "nominal" | "categorical" | "ordinal" | "continuous" | "discrete";
-  members: any[] | null; // Unique values if categorical/discrete
-  group: string | null; // Logical grouping (temporal, lifecycle, conversion, etc)
-  parent: boolean; // Whether this is a parent dimension in a hierarchy
+  members: any[] | null;
+  group: string | null;
+  parent: boolean;
 }
 
 /**
- * Dimension configuration - how a field should be used as a dimension
+ * Dimension configuration
  */
 export interface DimensionConfig {
-  column: string; // References field name
-  transformation: string | null; // SQL transformation (e.g., CASE WHEN for labels)
-  filter: string | null; // Default filter to apply
-  sort: string; // "asc" | "desc" | "none" | "custom:value1,value2,..."
+  column: string;
+  transformation: string | null;
+  filter: string | null;
+  sort: string;
 }
 
 /**
- * Measure configuration - how a field should be aggregated
+ * Measure configuration
  */
 export interface MeasureConfig {
-  column: string | null; // References field name (null for COUNT(*))
-  aggregations: string[]; // ["sum", "avg", "count", "count_distinct", "min", "max", "complex"]
-  formula: string; // SQL aggregation formula
+  column: string | null;
+  aggregations: string[];
+  formula: string;
   description: string;
   format: "number" | "currency" | "percentage";
   currency?: string;
@@ -49,11 +50,24 @@ export interface SemanticMetadata {
   measures: Record<string, MeasureConfig>;
 }
 
+const METADATA_REGISTRY: Record<string, SemanticMetadata> = {
+  "sessions": sessionsMetadata as SemanticMetadata,
+  "users": usersMetadata as SemanticMetadata
+};
+
 /**
- * Get the complete semantic metadata
+ * Get semantic metadata for a table
  */
-export function getSemanticMetadata(): SemanticMetadata {
-  return semanticMetadata as SemanticMetadata;
+export function getSemanticMetadata(table?: "sessions" | "users"): SemanticMetadata {
+  if (!table) return METADATA_REGISTRY["sessions"];
+  return METADATA_REGISTRY[table];
+}
+
+/**
+ * Get model configuration (for backward compatibility)
+ */
+export function getModelConfig(table: "sessions" | "users") {
+  return getSemanticMetadata(table);
 }
 
 /**
@@ -62,7 +76,6 @@ export function getSemanticMetadata(): SemanticMetadata {
 export function sanitizeValue(value: any, field: FieldMetadata): any {
   if (!field.sanitize) return value;
 
-  // Handle Uint8Array (DuckDB's way of representing small integers)
   if (value instanceof Uint8Array) {
     let result = 0;
     for (let i = 0; i < Math.min(8, value.length); i++) {
@@ -71,7 +84,6 @@ export function sanitizeValue(value: any, field: FieldMetadata): any {
     return result;
   }
 
-  // Handle BigInt
   if (typeof value === 'bigint') {
     return Number(value);
   }
@@ -100,8 +112,8 @@ export function sanitizeRow(row: Record<string, any>, metadata: SemanticMetadata
 /**
  * Get fields by group
  */
-export function getFieldsByGroup(group: string): string[] {
-  const metadata = getSemanticMetadata();
+export function getFieldsByGroup(group: string, table?: "sessions" | "users"): string[] {
+  const metadata = getSemanticMetadata(table);
   return Object.entries(metadata.fields)
     .filter(([_, field]) => field.group === group)
     .map(([name, _]) => name);
@@ -110,8 +122,8 @@ export function getFieldsByGroup(group: string): string[] {
 /**
  * Get parent dimensions (for hierarchies)
  */
-export function getParentDimensions(): string[] {
-  const metadata = getSemanticMetadata();
+export function getParentDimensions(table?: "sessions" | "users"): string[] {
+  const metadata = getSemanticMetadata(table);
   return Object.entries(metadata.fields)
     .filter(([_, field]) => field.parent)
     .map(([name, _]) => name);
@@ -120,17 +132,17 @@ export function getParentDimensions(): string[] {
 /**
  * Get available aggregations for a measure
  */
-export function getAvailableAggregations(measureName: string): string[] {
-  const metadata = getSemanticMetadata();
+export function getAvailableAggregations(measureName: string, table?: "sessions" | "users"): string[] {
+  const metadata = getSemanticMetadata(table);
   const measure = metadata.measures[measureName];
   return measure?.aggregations || [];
 }
 
 /**
- * Generate optimized WebLLM prompt for DeepSeek-R1-Distill-8B
+ * Generate optimized WebLLM prompt
  */
-export function generatePivotWebLLMPrompt(): string {
-  const metadata = getSemanticMetadata();
+export function generatePivotWebLLMPrompt(table?: "sessions" | "users"): string {
+  const metadata = getSemanticMetadata(table);
   
   // Organize dimensions by group
   const dimsByGroup: Record<string, string[]> = {};
@@ -149,7 +161,7 @@ export function generatePivotWebLLMPrompt(): string {
     m.includes("_rate") || m.includes("_ratio")
   );
   const countMeasures = Object.keys(metadata.measures).filter(m => 
-    m.includes("count") || m.includes("sessions") && !m.includes("_rate")
+    (m.includes("count") || m.includes("sessions") || m.includes("users")) && !m.includes("_rate")
   );
   const revenueMeasures = Object.keys(metadata.measures).filter(m => 
     m.includes("revenue")
@@ -161,18 +173,15 @@ export function generatePivotWebLLMPrompt(): string {
 **Description**: ${metadata.description}
 
 ## Dimensions (Group By)
-**Temporal**: ${dimsByGroup.temporal?.join(", ") || "none"}
-**Lifecycle**: ${dimsByGroup.lifecycle?.join(", ") || "none"}
-**Marketing**: ${dimsByGroup.marketing_channel?.join(", ") || "none"}
-**User Status**: ${dimsByGroup.user_status?.join(", ") || "none"}
-**Monetization**: ${dimsByGroup.monetization?.join(", ") || "none"}
-**Funnel**: ${dimsByGroup.funnel?.join(", ") || "none"}
+${Object.entries(dimsByGroup).map(([group, dims]) => 
+  `**${group}**: ${dims.join(", ")}`
+).join("\n")}
 
 ## Measures (Aggregations)
-**Event Counts**: ${eventMeasures.join(", ")}
-**Rates**: ${rateMeasures.join(", ")}
-**Session Counts**: ${countMeasures.join(", ")}
-**Revenue**: ${revenueMeasures.join(", ")}
+**Event Counts**: ${eventMeasures.join(", ") || "none"}
+**Rates**: ${rateMeasures.join(", ") || "none"}
+**Counts**: ${countMeasures.join(", ")}
+**Revenue**: ${revenueMeasures.join(", ") || "none"}
 
 # Response Format (CRITICAL - JSON ONLY, NO MARKDOWN)
 {
@@ -190,9 +199,7 @@ export function generatePivotWebLLMPrompt(): string {
 5. Respond with ONLY valid JSON - no markdown, no code blocks, no extra text
 
 # Examples
-"sum of interest events by traffic source" → {"dimensions":["traffic_source"],"measures":["interest_events"],"explanation":"Total interest events by traffic source"}
+"revenue by traffic source" → {"dimensions":["traffic_source"],"measures":["total_revenue"],"explanation":"Revenue by traffic source"}
 
-"conversion rate by weekday" → {"dimensions":["session_weekday_name"],"measures":["activation_rate"],"explanation":"Activation rates by day of week"}
-
-"new vs returning visitors" → {"dimensions":[],"measures":["new_visitor_sessions","returning_visitor_sessions"],"explanation":"New vs returning visitor counts"}`;
+"active users by lifecycle stage" → {"dimensions":["lifecycle_stage"],"measures":["active_users_30d"],"explanation":"Active users by lifecycle"}`;
 }

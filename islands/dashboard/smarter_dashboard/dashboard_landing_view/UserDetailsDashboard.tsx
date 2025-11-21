@@ -3,7 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import KPICard from "../../../../components/charts/KPICard.tsx";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
 import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitude.ts";
-import { usersDashboardQueries } from "../../../../utils/smarter/dashboard-queries.ts";
+import { usersDashboardQueries } from "../../../../utils/smarter/semantic-dashboard-queries.ts";
 import { generateDashboardChartConfig } from "../../../../utils/smarter/dashboard-chart-generator.ts";
 import { getModelConfig } from "../../../../utils/smarter/semantic-config.ts";
 import { metadataStore } from "../../../../utils/services/metadata-store.ts";

@@ -112,34 +112,19 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
         setLoading({
           step: "webllm",
           progress: 60,
-          message: "Preparing AI assistant...",
+          message: "Loading AI assistant...",
         });
 
-        const { CreateMLCEngine } = await import("@mlc-ai/web-llm");
-        
-        const engine = await CreateMLCEngine(
-          "Llama-3.2-3B-Instruct-q4f16_1-MLC",
-          {
-            initProgressCallback: (progress) => {
-              const webllmProgress = 60 + (progress.progress || 0) * 35;
-              setLoading({
-                step: "webllm",
-                progress: webllmProgress,
-                message: progress.text || "Loading language model...",
-              });
-            },
-          },
-        );
-
-        setLoading({
-          step: "webllm",
-          progress: 95,
-          message: "Integrating AI with semantic layer...",
-        });
-
-        // Step 4: Integrate WebLLM with semantic layer
+        // Initialize WebLLM with semantic layer
         const llmHandler = new WebLLMSemanticHandler(semanticTables, "large");
-        await llmHandler.initialize();
+        await llmHandler.initialize((progress) => {
+          const webllmProgress = 60 + (progress.progress || 0) * 35;
+          setLoading({
+            step: "webllm",
+            progress: webllmProgress,
+            message: progress.text || "Loading DeepSeek R1 7B model...",
+          });
+        });
 
         setLoading({
           step: "complete",

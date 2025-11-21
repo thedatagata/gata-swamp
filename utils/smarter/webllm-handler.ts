@@ -1,10 +1,11 @@
 // utils/smarter/webllm-handler.ts
 import { CreateMLCEngine } from "@mlc-ai/web-llm";
-import { generateWebLLMPrompt } from "./semantic-config.ts";
+import { generatePivotWebLLMPrompt } from "./semantic-config.ts";
 import { validateAndAnalyzeQuery, generateCorrectionPrompt, type QueryValidationReport } from "./query-validator.ts";
-import type { SemanticTable } from "./semantic-amplitude.ts";
+import type { SemanticReportObj } from "./semantic-amplitude.ts";
 
 export interface QueryResponse {
+  table: "sessions" | "users";
   dimensions: string[];
   measures: string[];
   filters?: string[];
@@ -29,15 +30,15 @@ export class WebLLMSemanticHandler {
   private static MODEL_TIERS = {
     small: "Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC",
     medium: "Llama-3.2-3B-Instruct-q4f16_1-MLC",
-    large: "DeepSeek-R1-Distill-Llama-8B-q4f16_1-MLC",
+    large: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC"
   };
 
   constructor(
-    private semanticTable: SemanticTable,
+    private semanticTables: { sessions: SemanticReportObj; users: SemanticReportObj },
     tier: "small" | "medium" | "large" = "large",
   ) {
     this.modelId = WebLLMSemanticHandler.MODEL_TIERS[tier];
-    this.systemPrompt = generateWebLLMPrompt();
+    this.systemPrompt = generatePivotWebLLMPrompt();
     this.useValidation = tier !== "large";
     
     console.log(`🤖 [WebLLM] Model: ${tier}, Validation: ${this.useValidation ? "enabled" : "disabled"}`);
@@ -105,7 +106,9 @@ export class WebLLMSemanticHandler {
     }
 
     console.log("🚀 [WebLLM] Executing query...");
-    const data = await this.semanticTable.query({
+    const table = this.semanticTables[querySpec.table || "sessions"];
+    if (!table) throw new Error(`Table ${querySpec.table} not found`);
+    const data = await table.query({
       dimensions: querySpec.dimensions,
       measures: querySpec.measures,
       filters: querySpec.filters,
@@ -174,7 +177,9 @@ export class WebLLMSemanticHandler {
     const querySpec = JSON.parse(cleanedText);
     querySpec.dimensions = querySpec.dimensions || [];
 
-    const sql = this.semanticTable.generateSQL({
+    const table = this.semanticTables[querySpec.table || "sessions"];
+    if (!table) throw new Error(`Table ${querySpec.table} not found`);
+    const sql = table.generateSQL({
       dimensions: querySpec.dimensions,
       measures: querySpec.measures,
       filters: querySpec.filters,

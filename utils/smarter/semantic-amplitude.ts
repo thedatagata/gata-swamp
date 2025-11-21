@@ -1,4 +1,4 @@
-// utils/smarter/semantic-amplitude-pivot.ts
+// utils/smarter/semantic-amplitude.ts
 import { 
   getSemanticMetadata, 
   sanitizeRow,
@@ -17,8 +17,8 @@ interface QuerySpec {
 export class SemanticReportObj {
   private metadata: SemanticMetadata;
 
-  constructor(private db: any) {
-    this.metadata = getSemanticMetadata();
+  constructor(private db: any, table?: "sessions" | "users") {
+    this.metadata = getSemanticMetadata(table);
   }
 
   /**
@@ -59,7 +59,7 @@ export class SemanticReportObj {
       ${opts.limit ? `LIMIT ${opts.limit}` : ""}
     `.trim();
 
-    console.log("🔍 [SemanticPivotTable] Generated SQL:", sql);
+    console.log("🔍 [SemanticTable] Generated SQL:", sql);
 
     const result = await this.db.query(sql);
     const rows = result.toArray().map((row: any) => row.toJSON());
@@ -67,7 +67,7 @@ export class SemanticReportObj {
     // Sanitize data (handle Uint8Array and BigInt)
     const sanitized = rows.map((row: any) => sanitizeRow(row, this.metadata));
     
-    console.log(`✅ [SemanticPivotTable] Query returned ${sanitized.length} rows`);
+    console.log(`✅ [SemanticTable] Query returned ${sanitized.length} rows`);
     return sanitized;
   }
 
@@ -156,8 +156,18 @@ export class SemanticReportObj {
 }
 
 /**
- * Factory function to create semantic pivot table
+ * Factory function to create semantic table
  */
-export function createSemanticReportObj(db: any): SemanticReportObj {
-  return new SemanticReportObj(db);
+export function createSemanticReportObj(db: any, table?: "sessions" | "users"): SemanticReportObj {
+  return new SemanticReportObj(db, table);
+}
+
+/**
+ * Create semantic tables for both sessions and users
+ */
+export function createSemanticTables(db: any) {
+  return {
+    sessions: new SemanticReportObj(db, "sessions"),
+    users: new SemanticReportObj(db, "users")
+  };
 }

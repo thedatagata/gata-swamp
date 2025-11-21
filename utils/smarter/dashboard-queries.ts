@@ -113,7 +113,7 @@ SELECT
     THEN (activations_previous::FLOAT / total_sessions_previous) * 100 
     ELSE 0 
   END as activation_rate_previous
-FROM sessions_pivot_src
+FROM session_facts
     `.trim();
 
     return { sql, spec };

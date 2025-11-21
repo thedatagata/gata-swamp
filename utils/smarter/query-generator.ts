@@ -3,7 +3,7 @@ import {
   getSemanticMetadata, 
   type SemanticMetadata,
   type FieldMetadata 
-} from "./semantic-amplitude-pivot-config.ts";
+} from "./semantic-config.ts";
 
 /**
  * Filter specification

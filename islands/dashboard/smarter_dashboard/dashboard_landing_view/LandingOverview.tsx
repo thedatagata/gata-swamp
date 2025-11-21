@@ -46,10 +46,12 @@ export default function LandingOverview({ db, webllmEngine, onSelectTable }: Lan
       
       try {
         // Get KPIs directly (bypass semantic layer for window functions)
-        const sessionsKPIData = await getSessionsKPIs(db);
+        const sessionsKPIRaw = await getSessionsKPIs(db);
+        const sessionsKPIData = sanitizeQueryData([sessionsKPIRaw])[0];
         setSessionsKPI({ sessions_kpi: { data: [sessionsKPIData] } });
         
-        const usersKPIData = await getUsersKPIs(db);
+        const usersKPIRaw = await getUsersKPIs(db);
+        const usersKPIData = sanitizeQueryData([usersKPIRaw])[0];
         setUsersKPI({ users_kpi: { data: [usersKPIData] } });
 
         // Generate AI insights if webllmEngine is available

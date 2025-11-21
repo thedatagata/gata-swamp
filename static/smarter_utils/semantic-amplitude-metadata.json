@@ -1,5 +1,5 @@
 {
-  "table": "sessions_pivot_src",
+  "table": "session_facts",
   "description": "Enriched session-level analytics with 13.7K sessions including lifecycle stages, funnel progression, and event tracking",
   "fields": {
     "session_id": {

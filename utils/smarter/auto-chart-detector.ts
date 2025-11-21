@@ -1,6 +1,6 @@
 // utils/semantic/chart-detector.ts
 import type { QueryResponse } from "./webllm-handler.ts";
-import type { SemanticConfig } from "./semantic-config.ts";
+import type { SemanticMetadata } from "./semantic-config.ts";
 
 export type ChartType = 'bar' | 'line' | 'heatmap' | 'biaxial-bar' | 'stacked-bar' | 'area' | 'area-fill-by-value' | 'kpi' | 'funnel';
 
@@ -23,7 +23,7 @@ export interface ChartDetectionResult {
  */
 export function detectChartType(
   query: QueryResponse,
-  semanticConfig: SemanticConfig,
+  semanticConfig: SemanticMetadata,
   data?: any[]  // Optional data to check for positive/negative values
 ): ChartDetectionResult {
   const numDimensions = query.dimensions?.length || 0;
@@ -39,7 +39,7 @@ export function detectChartType(
   }
 
   // Get dimension metadata
-  const modelConfig = semanticConfig[query.table];
+  const modelConfig = semanticConfig;
   const dimensions = query.dimensions?.map(d => ({
     name: d,
     metadata: modelConfig.dimensions[d]

@@ -4,7 +4,7 @@ import KPICard from "../../../../components/charts/KPICard.tsx";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
 import FunnelChart from "../../../charts/FunnelChart.tsx";
 import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitude.ts";
-import { sessionsDashboardQueries } from "../../../../utils/smarter/dashboard-queries.ts";
+import { sessionsDashboardQueries } from "../../../../utils/smarter/semantic-dashboard-queries.ts";
 import { generateDashboardChartConfig } from "../../../../utils/smarter/dashboard-chart-generator.ts";
 import { getModelConfig } from "../../../../utils/smarter/semantic-config.ts";
 import { metadataStore } from "../../../../utils/services/metadata-store.ts";
@@ -169,14 +169,14 @@ export default function SessionDetailsDashboard({
   const sessionsConfig = getModelConfig("sessions");
   
   // Revenue KPI
-  const revenueCurrent = getKPIValue('sessions_total_revenue', 'revenue_last_30d');
-  const revenuePrevious = getKPIValue('sessions_total_revenue', 'revenue_previous_30d');
-  const revenueGrowth = getKPIValue('sessions_total_revenue', 'revenue_growth_rate');
+  const revenueCurrent = getKPIValue('sessions_total_revenue', 'total_revenue');
+  const revenuePrevious = 0; // No period comparison in semantic layer
+  const revenueGrowth = 0;
   
   // Sessions Count KPI
-  const sessionsCurrent = getKPIValue('sessions_count_kpi', 'sessions_last_30d');
-  const sessionsPrevious = getKPIValue('sessions_count_kpi', 'sessions_previous_30d');
-  const sessionsGrowth = ((sessionsCurrent - sessionsPrevious) / sessionsPrevious * 100) || 0;
+  const sessionsCurrent = getKPIValue('sessions_count_kpi', 'session_count');
+  const sessionsPrevious = 0;
+  const sessionsGrowth = 0;
   
   // New vs Returning KPI
   const newVsReturningCurrent = getKPIValue('new_vs_returning', 'new_vs_returning_30d');

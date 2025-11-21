@@ -1,5 +1,5 @@
 // utils/smarter/query-response-analyzer.ts
-import { getSemanticMetadata, type FieldMetadata } from "./semantic-amplitude-pivot-config.ts";
+import { getSemanticMetadata, type FieldMetadata } from "./semantic-config.ts";
 
 /**
  * Categorized dimensions for smart visualization
