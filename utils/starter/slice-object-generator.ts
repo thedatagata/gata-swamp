@@ -1,5 +1,5 @@
 // utils/starter/slice-object-generator.ts
-import metadata from "../../static/starter_utils/users-pivot-metadata.json" with { type: "json" };
+import metadata from "../../static/starter/users-pivot-metadata.json" with { type: "json" };
 
 interface SliceObject {
   rows?: Array<{ uniqueName: string; [key: string]: any }>;

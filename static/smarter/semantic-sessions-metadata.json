@@ -1,0 +1,368 @@
+{
+  "table": "session_facts",
+  "description": "Session-level analytics with 13.7K sessions",
+  "fields": {
+    "session_id": {
+      "description": "Unique session identifier",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": null
+    },
+    "cookie_id": {
+      "description": "Cookie identifier",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": null
+    },
+    "session_date": {
+      "description": "Session date",
+      "md_data_type": "DATE",
+      "ingest_data_type": "date",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "session_month_name": {
+      "description": "Month name",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["October", "November"]
+    },
+    "session_weekday_name": {
+      "description": "Weekday name",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    },
+    "session_sequence_number": {
+      "description": "Session number for visitor",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "integer",
+      "sanitize": false,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "traffic_source": {
+      "description": "Traffic source",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["direct", "email", "facebook_organic", "facebook_paid", "google_organic", "google_paid"]
+    },
+    "traffic_source_type": {
+      "description": "Traffic source",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["paid_ad_traffic", "organic_traffic", "returning","email"]
+    },
+    "is_anonymous": {
+      "description": "Whether user is anonymous",
+      "md_data_type": "INTEGER",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "categorical",
+      "members": [0, 1]
+    },
+    "trial_signup": {
+      "description": "Whether user signed up for trial",
+      "md_data_type": "INTEGER",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "categorical",
+      "members": [0, 1]
+    },
+    "paying_customer": {
+      "description": "Whether user is paying customer",
+      "md_data_type": "INTEGER",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "categorical",
+      "members": [0, 1]
+    },
+    "max_lifecycle_stage": {
+      "description": "Furthest lifecycle stage reached",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["awareness", "consideration", "expansion", "interest", "retention", "trial"]
+    },
+    "plan_tier": {
+      "description": "Subscription plan tier",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["business", "enterprise", "premium", "starter"]
+    },
+    "active_activation_session": {
+      "description": "Whether session had activation activity",
+      "md_data_type": "INTEGER",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "categorical",
+      "members": [0, 1]
+    },
+    "interest_events": {
+      "description": "Count of interest stage events",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "consideration_events": {
+      "description": "Count of consideration stage events",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "trial_events": {
+      "description": "Count of trial stage events",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "activation_events": {
+      "description": "Count of activation stage events",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "retention_events": {
+      "description": "Count of retention events",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "total_events": {
+      "description": "Total count of all events",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "session_revenue": {
+      "description": "Revenue generated in session",
+      "md_data_type": "DOUBLE",
+      "ingest_data_type": "number",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "is_returning_user": {
+      "description": "Whether user is returning",
+      "md_data_type": "INTEGER",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "categorical",
+      "members": [0, 1]
+    }
+  },
+  "dimensions": {
+    "session_date": {
+      "alias_name": "session_date",
+      "transformation": null,
+      "sort": "asc"
+    },
+    "session_month_name": {
+      "alias_name": "session_month_name",
+      "transformation": null,
+      "sort": "none"
+    },
+    "session_weekday_name": {
+      "alias_name": "session_weekday_name",
+      "transformation": null,
+      "sort": "none"
+    },
+    "traffic_source": {
+      "alias_name": "traffic_source",
+      "transformation": null,
+      "sort": "desc"
+    },
+    "traffic_source_type": {
+      "alias_name": "traffic_source_type",
+      "transformation": null,
+      "sort": "desc"
+    },
+    "max_lifecycle_stage": {
+      "alias_name": "max_lifecycle_stage",
+      "transformation": null,
+      "sort": "custom:awareness,interest,consideration,trial,expansion,retention"
+    },
+    "plan_tier": {
+      "alias_name": "current_plan_tier",
+      "transformation": "CASE WHEN plan_tier = '' OR plan_tier IS NULL THEN NULL ELSE plan_tier END",
+      "sort": "custom:starter,business,premium,enterprise"
+    },
+    "session_sequence_number": {
+      "alias_name": "session_sequence_number",
+      "transformation": null,
+      "sort": "asc"
+    },
+    "is_anonymous": {
+      "alias_name": "user_status",
+      "transformation": "CASE WHEN is_anonymous = 1 THEN 'Anonymous' ELSE 'Identified' END",
+      "sort": "none"
+    },
+    "trial_signup": {
+      "alias_name": "trial_signup_status",
+      "transformation": "CASE WHEN trial_signup = 1 THEN 'Signed Up' ELSE 'No Signup' END",
+      "sort": "none"
+    },
+    "active_activation_session": {
+      "alias_name": "activation_session_status",
+      "transformation": "CASE WHEN active_activation_session = 1 THEN 'Active Activation' ELSE 'No Activation' END",
+      "sort": "none"
+    },
+    "is_returning_user": {
+      "alias_name": "visitor_type",
+      "transformation": "CASE WHEN is_returning_user = 1 THEN 'Returning' ELSE 'New' END",
+      "sort": "none"
+    }
+  },
+  "measures": {
+    "traffic_source": {
+      "aggregations": [],
+      "formula": {
+        "paid_traffic": {
+          "sql": "SUM(CASE WHEN traffic_source IN ('facebook_paid','google_paid') THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total sessions attributed to a paid channel"
+        },
+        "organic_traffic": {
+          "sql": "SUM(CASE WHEN traffic_source IN ('direct','organic') THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total organic or direct sessions"
+        }
+      }
+    },
+    "interest_events": {
+      "aggregations": [
+        {"sum": {"alias": "total_interest_events", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_interest_events", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Interest stage event metrics"
+    },
+    "consideration_events": {
+      "aggregations": [
+        {"sum": {"alias": "total_consideration_events", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_consideration_events", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Consideration stage event metrics"
+    },
+    "trial_events": {
+      "aggregations": [
+        {"sum": {"alias": "total_trial_events", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_trial_events", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Trial stage event metrics"
+    },
+    "activation_events": {
+      "aggregations": [
+        {"sum": {"alias": "total_activation_events", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_activation_events", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Activation stage event metrics"
+    },
+    "retention_events": {
+      "aggregations": [
+        {"sum": {"alias": "total_retention_events", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_retention_events", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Retention event metrics"
+    },
+    "total_events": {
+      "aggregations": [
+        {"sum": {"alias": "sum_total_events", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_events_per_session", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Total event metrics"
+    },
+    "session_revenue": {
+      "aggregations": [
+        {"sum": {"alias": "total_revenue", "format": "currency", "currency": "USD", "decimals": 2}},
+        {"avg": {"alias": "avg_revenue_per_session", "format": "currency", "currency": "USD", "decimals": 2}}
+      ],
+      "formula": null,
+      "description": "Revenue metrics"
+    },
+    "trial_signup": {
+      "aggregations": [],
+      "formula": {
+        "trial_signup_rate": {
+          "sql": "AVG(CASE WHEN trial_signup = 1 THEN 100.0 ELSE 0.0 END)",
+          "format": "percentage",
+          "decimals": 1,
+          "description": "Trial signup conversion rate"
+        }
+      }
+    },
+    "paying_customer": {
+      "aggregations": [],
+      "formula": {
+        "paying_customer_rate": {
+          "sql": "AVG(CASE WHEN paying_customer = 1 THEN 100.0 ELSE 0.0 END)",
+          "format": "percentage",
+          "decimals": 1,
+          "description": "Paying customer rate"
+        }
+      }
+    },
+    "active_activation_session": {
+      "aggregations": [
+        {"avg": {"alias": "active_activation_session_rate", "format": "percentage", "decimals": 1}}
+      ],
+      "formula": {
+        "total_active_activation_sessions": {
+          "sql": "SUM(CASE WHEN active_activation_session = 1 THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Count of sessions with activation events"
+        }
+      }
+    },
+    "session_id": {
+      "aggregations": [
+        {"count": {"alias": "session_count", "format": "number", "decimals": 0}}
+      ],
+      "formula": null,
+      "description": "Total sessions"
+    },
+    "cookie_id": {
+      "aggregations": [
+        {"count_distinct": {"alias": "unique_visitors", "format": "number", "decimals": 0}}
+      ],
+      "formula": null,
+      "description": "Unique visitors"
+    }
+  }
+}

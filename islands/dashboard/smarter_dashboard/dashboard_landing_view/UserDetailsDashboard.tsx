@@ -2,10 +2,11 @@
 import { useEffect, useState } from "preact/hooks";
 import KPICard from "../../../../components/charts/KPICard.tsx";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
-import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitude.ts";
-import { usersDashboardQueries } from "../../../../utils/smarter/semantic-dashboard-queries.ts";
-import { generateDashboardChartConfig } from "../../../../utils/smarter/dashboard-chart-generator.ts";
-import { getModelConfig } from "../../../../utils/smarter/semantic-config.ts";
+import { createSemanticTables } from "../../../../utils/smarter/dashboard_utils/semantic-amplitude.ts";
+import { usersDashboardQueries } from "../../../../utils/smarter/overview_dashboards/semantic-dashboard-queries.ts";
+import { generateDashboardChartConfig } from "../../../../utils/smarter/autovisualization_dashboard/dashboard-chart-generator.ts";
+import { getSemanticMetadata } from "../../../../utils/smarter/dashboard_utils/semantic-config.ts";
+import { getUsersKPIs } from "../../../../utils/smarter/overview_dashboards/kpi-queries.ts";
 
 function uint8ArrayToNumber(arr: Uint8Array): number {
   let result = 0;
@@ -56,38 +57,50 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
       setLoading(true);
       setError(null);
       try {
+        // Load KPIs using the same query as LandingOverview
+        const usersKPIRaw = await getUsersKPIs(db);
+        const usersKPIData = sanitizeQueryData([usersKPIRaw])[0];
+        
+        // Build KPI data structure
+        const kpis: any = {
+          trial_users: {
+            query: { title: "Trial Users" },
+            data: [{ value: usersKPIData.trial_users_last_30d }]
+          },
+          onboarding_users: {
+            query: { title: "Onboarding Users" },
+            data: [{ value: usersKPIData.onboarding_users_last_30d }]
+          },
+          customer_users: {
+            query: { title: "Active Customers" },
+            data: [{ value: usersKPIData.customer_users_last_30d }]
+          }
+        };
+        setKpiData(kpis);
+        
+        // Load charts using semantic queries
         const tables = createSemanticTables(db);
-        const results: any = {};
+        const charts: any = {};
         for (const query of usersDashboardQueries) {
+          if (query.chartType === 'kpi') continue; // Skip KPIs, we handle them above
           const table = tables[query.table];
           if (!table) continue;
           const rawData = await table.query({ dimensions: query.dimensions, measures: query.measures, filters: query.filters });
           const data = sanitizeQueryData(rawData);
-          results[query.id] = { query, data };
-        }
-        const kpis: any = {};
-        const charts: any = {};
-        for (const [id, result] of Object.entries(results)) {
-          const { query, data } = result as any;
-          if (query.chartType === 'kpi') {
-            kpis[id] = { query, data };
-          } else {
-            try {
-              if (!data || data.length === 0) continue;
-              const config = generateDashboardChartConfig(query, data);
-              if (config && typeof config === 'object' && config.type) {
-                charts[id] = { query, config };
-              }
-            } catch (chartError) {
-              console.error(`Failed to generate chart ${id}:`, chartError);
+          try {
+            if (!data || data.length === 0) continue;
+            const config = generateDashboardChartConfig(query, data);
+            if (config && typeof config === 'object' && config.type) {
+              charts[query.id] = { query, config };
             }
+          } catch (chartError) {
+            console.error(`Failed to generate chart ${query.id}:`, chartError);
           }
         }
-        setKpiData(kpis);
         setChartData(charts);
 
         // Build column metadata from semantic layer
-        const usersConfig = getModelConfig("users");
+        const usersConfig = getSemanticMetadata("users");
         const semanticFields = [
           ...Object.entries(usersConfig.dimensions).map(([key, config]: [string, any]) => ({
             column_name: key,
@@ -172,19 +185,19 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
     }
   };
 
-  const getKPIValue = (id: string, measure: string) => {
+  const getKPIValue = (id: string) => {
     const kpi = kpiData[id];
     if (!kpi?.data?.[0]) return 0;
-    const value = kpi.data[0][measure];
+    const value = kpi.data[0].value;
     if (typeof value === 'bigint') return Number(value);
     if (value instanceof Uint8Array) return uint8ArrayToNumber(value);
     return value || 0;
   };
 
-  const usersConfig = getModelConfig("users");
-  const totalLTV = getKPIValue('users_total_revenue', 'total_revenue');
-  const payingCustomers = getKPIValue('paying_customers_kpi', 'paying_customers');
-  const activeUsers = getKPIValue('active_users_kpi', 'active_users_30d');
+  const usersConfig = getSemanticMetadata("users");
+  const trialUsersCurrent = getKPIValue('trial_users');
+  const onboardingUsersCurrent = getKPIValue('onboarding_users');
+  const customerUsersCurrent = getKPIValue('customer_users');
 
   if (error) {
     return (
@@ -238,9 +251,27 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
       )}
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KPICard title="Total LTV" value={totalLTV} format="currency" decimals={0} loading={loading} />
-        <KPICard title="Paying Customers" value={payingCustomers} format="number" loading={loading} />
-        <KPICard title="Active Users (30d)" value={activeUsers} format="number" loading={loading} />
+        <KPICard 
+          title="Trial Users" 
+          value={trialUsersCurrent} 
+          format="number" 
+          decimals={0}
+          loading={loading} 
+        />
+        <KPICard 
+          title="Onboarding Users" 
+          value={onboardingUsersCurrent} 
+          format="number" 
+          decimals={0}
+          loading={loading} 
+        />
+        <KPICard 
+          title="Active Customers" 
+          value={customerUsersCurrent} 
+          format="number" 
+          decimals={0}
+          loading={loading} 
+        />
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

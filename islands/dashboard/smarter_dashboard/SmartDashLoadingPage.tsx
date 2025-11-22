@@ -2,8 +2,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { TableProfiler } from "../../../utils/services/table-profiler.ts";
 import { metadataStore } from "../../../utils/services/metadata-store.ts";
-import { createSemanticTables } from "../../../utils/smarter/semantic-amplitude.ts";
-import { WebLLMSemanticHandler } from "../../../utils/smarter/webllm-handler.ts";
+import { createSemanticTables } from "../../../utils/smarter/dashboard_utils/semantic-amplitude.ts";
+import { WebLLMSemanticHandler } from "../../../utils/smarter/autovisualization_dashboard/webllm-handler.ts";
 import { getLDClient } from "../../../utils/launchdarkly/client.ts";
 
 export interface LoadingProgress {
@@ -116,9 +116,14 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
           message: "Loading AI assistant...",
         });
 
-        // Initialize WebLLM with semantic layer
+        // Initialize WebLLM with semantic layer and model tier from LaunchDarkly
         const ldClient = getLDClient();
-        const llmHandler = new WebLLMSemanticHandler(semanticTables, "large", ldClient);
+        
+        // Get model tier from LaunchDarkly flag
+        const modelTier = ldClient?.variation("smarter-model-tier", "3b") || "3b";
+        console.log(`📊 [SmartDash] Model tier: ${modelTier}`);
+        
+        const llmHandler = new WebLLMSemanticHandler(semanticTables, modelTier, ldClient);
         await llmHandler.initialize((progress) => {
           const webllmProgress = 60 + (progress.progress || 0) * 35;
           setLoading({

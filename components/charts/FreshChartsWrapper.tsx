@@ -1,7 +1,7 @@
 // components/charts/FreshChartsWrapper.tsx
 import FunnelChart from "../../islands/charts/FunnelChart.tsx";
 import AutoChart from "../../islands/charts/AutoChart.tsx";
-import type { ChartConfig } from "../../utils/smarter/chart-generator.ts";
+import type { ChartConfig } from "../../utils/smarter/autovisualization_dashboard/chart-generator.ts";
 
 interface FreshChartsWrapperProps {
   config: ChartConfig;

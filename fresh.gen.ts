@@ -24,6 +24,7 @@ import * as $dashboard_smarter_dashboard_dashboard_landing_view_LandingPageDashb
 import * as $dashboard_smarter_dashboard_dashboard_landing_view_SessionDetailsDashboard from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/SessionDetailsDashboard.tsx";
 import * as $dashboard_smarter_dashboard_dashboard_landing_view_UserDetailsDashboard from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/UserDetailsDashboard.tsx";
 import * as $dashboard_smarter_dashboard_semantic_dashboard_AutoVisualizationExperience from "./islands/dashboard/smarter_dashboard/semantic_dashboard/AutoVisualizationExperience.tsx";
+import * as $dashboard_smarter_dashboard_semantic_dashboard_SavedQueries from "./islands/dashboard/smarter_dashboard/semantic_dashboard/SavedQueries.tsx";
 import * as $dashboard_starter_dashboard_BaseDashboardWizard from "./islands/dashboard/starter_dashboard/BaseDashboardWizard.tsx";
 import * as $dashboard_starter_dashboard_FieldCatalog from "./islands/dashboard/starter_dashboard/FieldCatalog.tsx";
 import * as $dashboard_starter_dashboard_WebDataRocksPivot from "./islands/dashboard/starter_dashboard/WebDataRocksPivot.tsx";
@@ -65,6 +66,8 @@ const manifest = {
       $dashboard_smarter_dashboard_dashboard_landing_view_UserDetailsDashboard,
     "./islands/dashboard/smarter_dashboard/semantic_dashboard/AutoVisualizationExperience.tsx":
       $dashboard_smarter_dashboard_semantic_dashboard_AutoVisualizationExperience,
+    "./islands/dashboard/smarter_dashboard/semantic_dashboard/SavedQueries.tsx":
+      $dashboard_smarter_dashboard_semantic_dashboard_SavedQueries,
     "./islands/dashboard/starter_dashboard/BaseDashboardWizard.tsx":
       $dashboard_starter_dashboard_BaseDashboardWizard,
     "./islands/dashboard/starter_dashboard/FieldCatalog.tsx":

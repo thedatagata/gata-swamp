@@ -2,8 +2,11 @@
 // islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx
 import { useEffect, useState } from "preact/hooks";
 import KPICard from "../../../../components/charts/KPICard.tsx";
-import { getModelConfig } from "../../../../utils/smarter/semantic-config.ts";
-import { getSessionsKPIs, getUsersKPIs } from "../../../../utils/smarter/kpi-queries.ts";
+import { getSemanticMetadata } from "../../../../utils/smarter/dashboard_utils/semantic-config.ts";
+import { getSessionsKPIs, getUsersKPIs } from "../../../../utils/smarter/overview_dashboards/kpi-queries.ts";
+import { getLDClient } from "../../../../utils/launchdarkly/client.ts";
+import { trackView, trackInteraction, trackPerformance } from "../../../../utils/launchdarkly/events.ts";
+import UpgradeModal from "../../../../components/UpgradeModal.tsx";
 
 function uint8ArrayToNumber(arr: Uint8Array): number {
   const view = new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
@@ -38,6 +41,26 @@ export default function LandingOverview({ db, webllmEngine, onSelectTable }: Lan
   const [aiInsights, setAiInsights] = useState<string>("");
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasAIAnalyst, setHasAIAnalyst] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  useEffect(() => {
+    // Check AI analyst access flag
+    const client = getLDClient();
+    if (client) {
+      const aiAccess = client.variation("smarter-ai-analyst-access", false);
+      setHasAIAnalyst(aiAccess);
+      
+      // Track view of analyst feature gate
+      if (!aiAccess) {
+        trackView("gate", "feature_gate", "LandingOverview", {
+          plan: "smarter",
+          feature: "ai_analyst_assistant",
+          gateType: "premium_feature"
+        });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     async function loadOverview() {
@@ -54,8 +77,8 @@ export default function LandingOverview({ db, webllmEngine, onSelectTable }: Lan
         const usersKPIData = sanitizeQueryData([usersKPIRaw])[0];
         setUsersKPI({ users_kpi: { data: [usersKPIData] } });
 
-        // Generate AI insights if webllmEngine is available
-        if (webllmEngine) {
+        // Generate AI insights only if user has access and webllmEngine is available
+        if (webllmEngine && hasAIAnalyst) {
           generateInsights(sessionsKPIData, usersKPIData);
         }
       } catch (err) {
@@ -67,12 +90,19 @@ export default function LandingOverview({ db, webllmEngine, onSelectTable }: Lan
     }
 
     if (db) loadOverview();
-  }, [db]);
+  }, [db, hasAIAnalyst]);
 
   const generateInsights = async (sessionsData: any, usersData: any) => {
-    if (!webllmEngine) return;
+    if (!webllmEngine || !hasAIAnalyst) return;
     
     setInsightsLoading(true);
+    const startTime = performance.now();
+    
+    trackInteraction("click", "ai_analyst_button", "analysis", "LandingOverview", {
+      plan: "smarter",
+      analysisType: "session_overview"
+    });
+    
     try {
       // Extract KPI values from direct query results
       const revCurrent = sessionsData.revenue_last_30d || 0;
@@ -109,11 +139,47 @@ Keep it concise and actionable.`;
 
       const insights = await webllmEngine.chat(prompt);
       setAiInsights(insights);
+      
+      // Track successful analysis
+      trackPerformance("metric", "ai_analysis", "LandingOverview", {
+        plan: "smarter",
+        metric: "analysis_time",
+        value: performance.now() - startTime,
+        success: true
+      });
     } catch (error) {
       console.error("Failed to generate insights:", error);
       setAiInsights("Unable to generate insights at this time.");
+      
+      // Track error
+      trackPerformance("error", "ai_analysis", "LandingOverview", {
+        plan: "smarter",
+        errorType: error.name,
+        errorMessage: error.message,
+        success: false
+      });
     } finally {
       setInsightsLoading(false);
+    }
+  };
+  
+  const handleAnalystClick = () => {
+    if (!hasAIAnalyst) {
+      // Track gate interaction
+      trackInteraction("click", "ai_analyst_button", "feature_gate", "LandingOverview", {
+        plan: "smarter",
+        featureRequested: "ai_analyst_access"
+      });
+      
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    // If they have access, manually trigger insights generation
+    const sessData = sessionsKPI.sessions_kpi?.data?.[0];
+    const usersData = usersKPI.users_kpi?.data?.[0];
+    if (sessData && usersData) {
+      generateInsights(sessData, usersData);
     }
   };
 
@@ -130,24 +196,28 @@ Keep it concise and actionable.`;
   const revenuePrevious = getKPIValue(sessionsKPI, 'revenue_previous_30d');
   const revenueGrowth = getKPIValue(sessionsKPI, 'revenue_growth_rate');
   
-  const newSessionsCurrent = getKPIValue(sessionsKPI, 'new_sessions_last_30d');
-  const newSessionsPrevious = getKPIValue(sessionsKPI, 'new_sessions_previous_30d');
+  const newVsReturningCurrent = getKPIValue(sessionsKPI, 'new_vs_returning_30d');
+  const newVsReturningPrevious = getKPIValue(sessionsKPI, 'new_vs_returning_previous_30d');
+  const newVsReturningRate = getKPIValue(sessionsKPI, 'new_vs_returning_rate');
   
-  const activationsCurrent = getKPIValue(sessionsKPI, 'activation_last_30d');
-  const activationsPrevious = getKPIValue(sessionsKPI, 'activation_previous_30d');
-  const activationsGrowth = getKPIValue(sessionsKPI, 'activation_growth_rate');
+  const paidVsOrganicCurrent = getKPIValue(sessionsKPI, 'paid_vs_organic_30d');
+  const paidVsOrganicPrevious = getKPIValue(sessionsKPI, 'paid_vs_organic_previous_30d');
+  const paidVsOrganicRate = getKPIValue(sessionsKPI, 'paid_vs_organic_traffic_rate');
   
-  const activationRateCurrent = getKPIValue(usersKPI, 'activation_rate_last_30d');
-  const activationRatePrevious = getKPIValue(usersKPI, 'activation_rate_previous_30d');
+  const trialUsersCurrent = getKPIValue(usersKPI, 'trial_users_last_30d');
+  const trialUsersPrevious = getKPIValue(usersKPI, 'trial_users_previous_30d');
+  const trialUsersGrowth = getKPIValue(usersKPI, 'trial_users_growth_rate');
   
-  const avgDealSizeCurrent = getKPIValue(usersKPI, 'avg_deal_size_last_30d');
-  const avgDealSizePrevious = getKPIValue(usersKPI, 'avg_deal_size_previous_30d');
+  const onboardingUsersCurrent = getKPIValue(usersKPI, 'onboarding_users_last_30d');
+  const onboardingUsersPrevious = getKPIValue(usersKPI, 'onboarding_users_previous_30d');
+  const onboardingUsersGrowth = getKPIValue(usersKPI, 'onboarding_users_growth_rate');
   
-  const activeCustomersCurrent = getKPIValue(usersKPI, 'active_customers_last_30d');
-  const activeCustomersPrevious = getKPIValue(usersKPI, 'active_customers_previous_30d');
+  const customerUsersCurrent = getKPIValue(usersKPI, 'customer_users_last_30d');
+  const customerUsersPrevious = getKPIValue(usersKPI, 'customer_users_previous_30d');
+  const customerUsersGrowth = getKPIValue(usersKPI, 'customer_users_growth_rate');
 
-  const sessionsConfig = getModelConfig("sessions");
-  const usersConfig = getModelConfig("users");
+  const sessionsConfig = getSemanticMetadata("sessions");
+  const usersConfig = getSemanticMetadata("users");
 
   if (error) {
     return (
@@ -162,10 +232,45 @@ Keep it concise and actionable.`;
     <div class="space-y-8">
       {/* AI Insights Section */}
       <div class="bg-gata-dark/60 backdrop-blur-sm rounded-lg border border-gata-green/30 p-6 shadow-lg">
-        <h2 class="text-xl font-bold text-gata-cream mb-3 flex items-center">
-          <span class="mr-2">🤖</span> AI Insights & Recommendations
-        </h2>
-        {insightsLoading ? (
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xl font-bold text-gata-cream flex items-center">
+            <span class="mr-2">🤖</span> AI Insights & Recommendations
+          </h2>
+          {hasAIAnalyst ? (
+            <button
+              onClick={handleAnalystClick}
+              disabled={insightsLoading || !webllmEngine}
+              class="px-4 py-2 bg-gata-green/20 text-gata-green rounded-lg hover:bg-gata-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {insightsLoading ? "Analyzing..." : "🤖 Refresh Analysis"}
+            </button>
+          ) : (
+            <button
+              onClick={handleAnalystClick}
+              class="px-4 py-2 bg-gata-dark border-2 border-gata-green/50 text-gata-cream rounded-lg hover:bg-gata-green/10 transition-colors font-medium flex items-center gap-2"
+            >
+              <span class="text-lg">🔒</span>
+              <span>AI Data Analyst (Premium)</span>
+            </button>
+          )}
+        </div>
+        {!hasAIAnalyst ? (
+          <div class="bg-gata-dark/40 border border-gata-green/20 rounded-lg p-6 text-center">
+            <div class="text-4xl mb-3">🧠</div>
+            <h3 class="text-lg font-semibold text-gata-cream mb-2">
+              Unlock AI-Powered Data Analysis
+            </h3>
+            <p class="text-gata-cream/70 text-sm mb-4">
+              Get automated insights, pattern detection, and actionable recommendations
+            </p>
+            <button
+              onClick={handleAnalystClick}
+              class="px-6 py-2 bg-gradient-to-r from-gata-green to-[#a0d147] text-gata-dark font-bold rounded-lg hover:opacity-90 transition-opacity"
+            >
+              Upgrade to Premium
+            </button>
+          </div>
+        ) : insightsLoading ? (
           <div class="flex items-center gap-3 text-gata-green">
             <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-gata-green"></div>
             <span class="text-sm">Analyzing your metrics...</span>
@@ -178,6 +283,14 @@ Keep it concise and actionable.`;
           <p class="text-gata-cream/70 text-sm">AI insights will appear here after data loads...</p>
         )}
       </div>
+      
+      {showUpgradeModal && (
+        <UpgradeModal 
+          feature="ai_analyst_access"
+          trigger="analysis_request"
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      )}
 
       <div class="bg-gata-dark/80 backdrop-blur-sm rounded-lg shadow-lg border border-gata-green/20 overflow-hidden">
         <div class="bg-gradient-to-r from-gata-green/20 to-gata-green/10 px-6 py-4 border-b border-gata-green/30">
@@ -199,30 +312,33 @@ Keep it concise and actionable.`;
         <div class="p-6">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <KPICard 
-              title="New Sessions (30d)" 
-              value={newSessionsCurrent} 
-              previousValue={newSessionsPrevious} 
-              format="number" 
-              description="First-time sessions: Last 30d vs previous 30d" 
+              title="New vs Returning" 
+              value={newVsReturningCurrent} 
+              previousValue={newVsReturningPrevious} 
+              changePercent={newVsReturningRate}
+              format="percentage" 
+              decimals={1}
+              description="Returning visitor rate: Last 30d vs previous 30d" 
               loading={loading} 
             />
             <KPICard 
-              title="Activations (30d)" 
-              value={activationsCurrent} 
-              previousValue={activationsPrevious}
-              changePercent={activationsGrowth} 
-              format="number" 
-              description="Total activations: Last 30d vs previous 30d" 
+              title="Paid vs Organic" 
+              value={paidVsOrganicCurrent} 
+              previousValue={paidVsOrganicPrevious}
+              changePercent={paidVsOrganicRate}
+              format="percentage" 
+              decimals={1}
+              description="Paid traffic rate: Last 30d vs previous 30d" 
               loading={loading} 
             />
             <KPICard 
-              title="Total Revenue (30d)" 
+              title="Revenue" 
               value={revenueCurrent} 
               previousValue={revenuePrevious} 
               changePercent={revenueGrowth} 
               format="currency" 
               decimals={0} 
-              description="Last 30d vs previous 30d" 
+              description="Total revenue: Last 30d vs previous 30d" 
               loading={loading} 
             />
           </div>
@@ -249,29 +365,33 @@ Keep it concise and actionable.`;
         <div class="p-6">
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <KPICard 
-              title="Trial to Activation Rate" 
-              value={activationRateCurrent} 
-              previousValue={activationRatePrevious}
-              format="percentage" 
-              decimals={1}
-              description="Users reaching activation: Last 30d vs previous 30d" 
+              title="Trial Users" 
+              value={trialUsersCurrent} 
+              previousValue={trialUsersPrevious} 
+              changePercent={trialUsersGrowth}
+              format="number" 
+              decimals={0}
+              description="Users in trial stage: Last 30d vs previous 30d" 
               loading={loading} 
             />
             <KPICard 
-              title="Avg Deal Size" 
-              value={avgDealSizeCurrent} 
-              previousValue={avgDealSizePrevious}
-              format="currency" 
+              title="Onboarding Users" 
+              value={onboardingUsersCurrent} 
+              previousValue={onboardingUsersPrevious}
+              changePercent={onboardingUsersGrowth}
+              format="number" 
               decimals={0}
-              description="Average revenue per user: Last 30d vs previous 30d" 
+              description="Users in activation stage: Last 30d vs previous 30d" 
               loading={loading} 
             />
             <KPICard 
               title="Active Customers" 
-              value={activeCustomersCurrent} 
-              previousValue={activeCustomersPrevious}
+              value={customerUsersCurrent} 
+              previousValue={customerUsersPrevious}
+              changePercent={customerUsersGrowth}
               format="number" 
-              description="Customers with revenue: Last 30d vs previous 30d" 
+              decimals={0}
+              description="Users in retention stage: Last 30d vs previous 30d" 
               loading={loading} 
             />
           </div>

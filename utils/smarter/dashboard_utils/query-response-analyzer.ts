@@ -5,23 +5,22 @@ import { getSemanticMetadata, type FieldMetadata } from "./semantic-config.ts";
  * Categorized dimensions for smart visualization
  */
 export interface CategorizedDimensions {
-  temporal: string[];      // session_date, session_month_name, session_weekday_name
+  temporal: string[];      // session_date, first_event_date, last_event_date
   sequential: string[];    // max_lifecycle_stage (ordered categories)
   categorical: string[];   // traffic_source, plan_tier (unordered categories)
-  binary: string[];        // is_anonymous_label, trial_signup_label
-  hierarchies: Array<{ parent: string; children: string[] }>;
+  binary: string[];        // has_activated, is_active_7d
 }
 
 /**
  * Categorized measures for smart visualization
  */
 export interface CategorizedMeasures {
-  counts: string[];        // session_count, unique_visitors
-  rates: string[];         // activation_rate, trial_signup_rate
+  counts: string[];        // session_count, user_count, unique_visitors
+  rates: string[];         // activation_rate, trial_signup_rate, paying_customer_rate
   revenue: string[];       // total_revenue, avg_revenue_per_session
   events: string[];        // interest_events, consideration_events
-  averages: string[];      // avg_funnel_step, avg_session_sequence
-  totals: string[];        // total_events, lifecycle_conversion_sessions
+  averages: string[];      // avg_events_per_session, avg_days_active
+  totals: string[];        // total_lifetime_events, total_sessions
 }
 
 /**
@@ -44,14 +43,18 @@ export interface VisualizationSpec {
 export class QueryResponseAnalyzer {
   private metadata = getSemanticMetadata();
 
+  constructor(table?: "sessions" | "users") {
+    this.metadata = getSemanticMetadata(table);
+  }
+
   /**
-   * Analyze WebLLM query response and generate visualization recommendations
+   * Analyze semantic query response and generate visualization recommendations
    */
   analyze(queryResponse: {
     dimensions: string[];
     measures: string[];
     filters?: string[];
-    explanation: string;
+    explanation?: string;
   }): VisualizationSpec {
     const dimCategories = this.categorizeDimensions(queryResponse.dimensions);
     const measureCategories = this.categorizeMeasures(queryResponse.measures);
@@ -98,7 +101,6 @@ export class QueryResponseAnalyzer {
     const sequential: string[] = [];
     const categorical: string[] = [];
     const binary: string[] = [];
-    const hierarchies: Array<{ parent: string; children: string[] }> = [];
 
     dimensions.forEach(dim => {
       const dimConfig = this.metadata.dimensions[dim];
@@ -107,40 +109,35 @@ export class QueryResponseAnalyzer {
       const field = this.metadata.fields[dimConfig.column];
       if (!field) return;
 
-      // Temporal
-      if (field.group === "temporal") {
+      // Temporal - check if dimension name or field type indicates time
+      if (dim.includes('date') || dim.includes('time') || dim.includes('month') || dim.includes('weekday') || 
+          field.md_data_type === 'DATE' || field.md_data_type.includes('TIMESTAMP')) {
         temporal.push(dim);
       }
-      // Sequential (ordinal with custom sort)
+      // Sequential (ordinal with custom sort indicating order)
       else if (dimConfig.sort?.startsWith("custom:")) {
         sequential.push(dim);
       }
-      // Binary (transformed boolean dimensions)
-      else if (dimConfig.transformation && field.data_type_category === "categorical" && field.members?.length === 2) {
+      // Binary (has transformation and likely 2 members)
+      else if (dimConfig.transformation && (
+        field.md_data_type === 'BOOLEAN' || 
+        field.md_data_type === 'INTEGER' ||
+        dim.includes('is_') ||
+        dim.includes('has_')
+      )) {
         binary.push(dim);
       }
       // Categorical
-      else if (field.data_type_category === "categorical" || field.data_type_category === "nominal") {
+      else if (field.data_type_category === "categorical" || field.members) {
         categorical.push(dim);
-      }
-
-      // Hierarchies
-      if (field.parent) {
-        const children = Object.entries(this.metadata.fields)
-          .filter(([_, f]) => f.group === field.group && !f.parent)
-          .map(([name, _]) => name);
-        
-        if (children.length > 0) {
-          hierarchies.push({ parent: dim, children });
-        }
       }
     });
 
-    return { temporal, sequential, categorical, binary, hierarchies };
+    return { temporal, sequential, categorical, binary };
   }
 
   /**
-   * Categorize measures based on naming patterns and metadata
+   * Categorize measures based on naming patterns
    */
   private categorizeMeasures(measures: string[]): CategorizedMeasures {
     const counts: string[] = [];
@@ -151,20 +148,17 @@ export class QueryResponseAnalyzer {
     const totals: string[] = [];
 
     measures.forEach(measure => {
-      const measureConfig = this.metadata.measures[measure];
-      if (!measureConfig) return;
-
-      if (measure.includes("_rate") || measure.includes("_ratio") || measureConfig.format === "percentage") {
+      if (measure.includes("_rate") || measure.includes("_ratio") || measure.includes("rate")) {
         rates.push(measure);
       } else if (measure.includes("revenue")) {
         revenue.push(measure);
-      } else if (measure.includes("_events") || measure.includes("event")) {
+      } else if (measure.includes("events") || measure.includes("event")) {
         events.push(measure);
-      } else if (measure.startsWith("avg_")) {
+      } else if (measure.startsWith("avg_") || measure.includes("_avg")) {
         averages.push(measure);
-      } else if (measure.includes("count") || measure.includes("sessions") || measure.includes("visitors")) {
+      } else if (measure.includes("count") || measure.includes("sessions") || measure.includes("visitors") || measure.includes("users")) {
         counts.push(measure);
-      } else if (measure.includes("total_")) {
+      } else if (measure.startsWith("total_") || measure.includes("_total")) {
         totals.push(measure);
       } else {
         // Default to totals
@@ -183,7 +177,8 @@ export class QueryResponseAnalyzer {
     measures: CategorizedMeasures
   ): VisualizationSpec["queryType"] {
     // No dimensions = KPI
-    if (dims.temporal.length === 0 && dims.sequential.length === 0 && dims.categorical.length === 0) {
+    if (dims.temporal.length === 0 && dims.sequential.length === 0 && 
+        dims.categorical.length === 0 && dims.binary.length === 0) {
       return "kpi";
     }
 
@@ -198,12 +193,12 @@ export class QueryResponseAnalyzer {
     }
 
     // Multiple categorical dimensions = breakdown
-    if (dims.categorical.length > 1) {
+    if (dims.categorical.length > 1 || (dims.categorical.length === 1 && dims.binary.length >= 1)) {
       return "breakdown";
     }
 
     // Single categorical = distribution or comparison
-    if (dims.categorical.length === 1) {
+    if (dims.categorical.length === 1 || dims.binary.length === 1) {
       if (measures.rates.length > 0 || measures.counts.length > 1) {
         return "comparison";
       }
@@ -336,6 +331,6 @@ export class QueryResponseAnalyzer {
 /**
  * Factory function
  */
-export function createQueryAnalyzer(): QueryResponseAnalyzer {
-  return new QueryResponseAnalyzer();
+export function createQueryAnalyzer(table?: "sessions" | "users"): QueryResponseAnalyzer {
+  return new QueryResponseAnalyzer(table);
 }

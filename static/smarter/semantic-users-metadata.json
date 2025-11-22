@@ -1,0 +1,745 @@
+{
+  "table": "users_dim",
+  "description": "User-level analytics with 234.8K users",
+  "fields": {
+    "user_key": {
+      "description": "Unique user identifier",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": null
+    },
+    "user_id": {
+      "description": "User ID (nullable for anonymous users)",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": null
+    },
+    "email": {
+      "description": "User email address",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": null
+    },
+    "first_device_id": {
+      "description": "First device identifier",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": null
+    },
+    "last_device_id": {
+      "description": "Most recent device identifier",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": null
+    },
+    "last_event_time": {
+      "description": "Timestamp of last event",
+      "md_data_type": "TIMESTAMP WITH TIME ZONE",
+      "ingest_data_type": "timestamp",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "last_event_date": {
+      "description": "Date of last event",
+      "md_data_type": "DATE",
+      "ingest_data_type": "date",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "days_since_last_event": {
+      "description": "Days since last activity",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "integer",
+      "sanitize": false,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "total_events": {
+      "description": "Lifetime event count",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "total_days_active": {
+      "description": "Total days with activity",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "total_sessions": {
+      "description": "Lifetime session count",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "total_revenue": {
+      "description": "Lifetime revenue generated",
+      "md_data_type": "DOUBLE",
+      "ingest_data_type": "number",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "events_24h": {
+      "description": "Events in last 24 hours",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "events_7d": {
+      "description": "Events in last 7 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "events_30d": {
+      "description": "Events in last 30 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "events_90d": {
+      "description": "Events in last 90 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "sessions_24h": {
+      "description": "Sessions in last 24 hours",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "sessions_7d": {
+      "description": "Sessions in last 7 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "sessions_30d": {
+      "description": "Sessions in last 30 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "sessions_90d": {
+      "description": "Sessions in last 90 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "days_active_7d": {
+      "description": "Days active in last 7 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "days_active_30d": {
+      "description": "Days active in last 30 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "days_active_90d": {
+      "description": "Days active in last 90 days",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "revenue_7d": {
+      "description": "Revenue in last 7 days",
+      "md_data_type": "DOUBLE",
+      "ingest_data_type": "number",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "revenue_30d": {
+      "description": "Revenue in last 30 days",
+      "md_data_type": "DOUBLE",
+      "ingest_data_type": "number",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "revenue_90d": {
+      "description": "Revenue in last 90 days",
+      "md_data_type": "DOUBLE",
+      "ingest_data_type": "number",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "largest_transaction": {
+      "description": "Largest single transaction amount",
+      "md_data_type": "DOUBLE",
+      "ingest_data_type": "number",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "current_plan_tier": {
+      "description": "Current subscription plan",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["", "starter", "business", "premium", "enterprise"]
+    },
+    "first_event_time": {
+      "description": "Timestamp of first event",
+      "md_data_type": "TIMESTAMP WITH TIME ZONE",
+      "ingest_data_type": "timestamp",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "first_event_date": {
+      "description": "Date of first event",
+      "md_data_type": "DATE",
+      "ingest_data_type": "date",
+      "sanitize": false,
+      "data_type_category": "continuous",
+      "members": null
+    },
+    "days_active_span": {
+      "description": "Days between first and last event",
+      "md_data_type": "BIGINT",
+      "ingest_data_type": "integer",
+      "sanitize": false,
+      "data_type_category": "numerical",
+      "members": null
+    },
+    "has_activated": {
+      "description": "Whether user has activated",
+      "md_data_type": "INTEGER",
+      "ingest_data_type": "Uint8Array",
+      "sanitize": true,
+      "data_type_category": "categorical",
+      "members": [0, 1]
+    },
+    "max_lifecycle_stage": {
+      "description": "Highest lifecycle stage reached (numeric)",
+      "md_data_type": "INTEGER",
+      "ingest_data_type": "integer",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": [1, 2, 3, 4, 5, 6, 7]
+    },
+    "max_lifecycle_stage_name": {
+      "description": "Highest lifecycle stage reached",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["activation", "awareness", "consideration", "expansion", "interest", "retention", "trial"]
+    },
+    "first_touch_utm_source": {
+      "description": "First touch attribution source",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["direct", "google", "newsletter", "social"]
+    },
+    "first_touch_utm_medium": {
+      "description": "First touch attribution medium",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["cpc", "email", "organic", "social"]
+    },
+    "first_touch_utm_campaign": {
+      "description": "First touch attribution campaign",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["brand_awareness", "product_launch", "summer_sale", "trial_promo", "webinar_series", "weekly_digest"]
+    },
+    "last_touch_utm_source": {
+      "description": "Last touch attribution source",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["direct", "google", "newsletter", "social"]
+    },
+    "last_touch_utm_medium": {
+      "description": "Last touch attribution medium",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["cpc", "email", "organic", "social"]
+    },
+    "last_touch_utm_campaign": {
+      "description": "Last touch attribution campaign",
+      "md_data_type": "VARCHAR",
+      "ingest_data_type": "string",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": ["brand_awareness", "product_launch", "summer_sale", "trial_promo", "webinar_series", "weekly_digest"]
+    },
+    "is_active_7d": {
+      "description": "Whether user is active in last 7 days",
+      "md_data_type": "BOOLEAN",
+      "ingest_data_type": "boolean",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": [false, true]
+    },
+    "is_active_30d": {
+      "description": "Whether user is active in last 30 days",
+      "md_data_type": "BOOLEAN",
+      "ingest_data_type": "boolean",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": [false, true]
+    },
+    "is_paying_customer": {
+      "description": "Whether user is a paying customer",
+      "md_data_type": "BOOLEAN",
+      "ingest_data_type": "boolean",
+      "sanitize": false,
+      "data_type_category": "categorical",
+      "members": [false, true]
+    }
+  },
+  "dimensions": {
+    "last_event_date": {
+      "alias_name": "last_event_date",
+      "transformation": null,
+      "sort": "desc"
+    },
+    "first_event_date": {
+      "alias_name": "first_event_date",
+      "transformation": null,
+      "sort": "asc"
+    },
+    "plan_tier": {
+      "alias_name": "current_plan_tier",
+      "transformation": "CASE WHEN current_plan_tier = '' OR current_plan_tier IS NULL THEN NULL ELSE current_plan_tier END",
+      "sort": "custom:starter,business,premium,enterprise"
+    },
+    "max_lifecycle_stage_name": {
+      "alias_name": "max_lifecycle_stage_name",
+      "transformation": null,
+      "sort": "custom:awareness,interest,consideration,trial,activation,expansion,retention"
+    },
+    "first_touch_utm_source": {
+      "alias_name": "first_touch_utm_source",
+      "transformation": null,
+      "sort": "desc"
+    },
+    "first_touch_utm_medium": {
+      "alias_name": "first_touch_utm_medium",
+      "transformation": null,
+      "sort": "none"
+    },
+    "first_touch_utm_campaign": {
+      "alias_name": "first_touch_utm_campaign",
+      "transformation": null,
+      "sort": "none"
+    },
+    "last_touch_utm_source": {
+      "alias_name": "last_touch_utm_source",
+      "transformation": null,
+      "sort": "desc"
+    },
+    "last_touch_utm_medium": {
+      "alias_name": "last_touch_utm_medium",
+      "transformation": null,
+      "sort": "none"
+    },
+    "last_touch_utm_campaign": {
+      "alias_name": "last_touch_utm_campaign",
+      "transformation": null,
+      "sort": "none"
+    },
+    "has_activated": {
+      "alias_name": "activation_status",
+      "transformation": "CASE WHEN has_activated = 1 THEN 'Activated' ELSE 'Not Activated' END",
+      "sort": "none"
+    },
+    "is_active_7d": {
+      "alias_name": "active_status_7d",
+      "transformation": "CASE WHEN is_active_7d THEN 'Active (7d)' ELSE 'Inactive (7d)' END",
+      "sort": "desc"
+    },
+    "is_active_30d": {
+      "alias_name": "active_status_30d",
+      "transformation": "CASE WHEN is_active_30d THEN 'Active (30d)' ELSE 'Inactive (30d)' END",
+      "sort": "desc"
+    },
+    "is_paying_customer": {
+      "alias_name": "customer_type",
+      "transformation": "CASE WHEN is_paying_customer THEN 'Paying' ELSE 'Free' END",
+      "sort": "desc"
+    },
+    "days_since_last_event": {
+      "alias_name": "days_since_last_event",
+      "transformation": null,
+      "sort": "asc"
+    }
+  },
+  "measures": {
+    "total_events": {
+      "aggregations": [
+        {"sum": {"alias": "total_lifetime_events", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_events_per_user", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Lifetime event metrics"
+    },
+    "total_sessions": {
+      "aggregations": [
+        {"sum": {"alias": "total_lifetime_sessions", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_sessions_per_user", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Lifetime session metrics"
+    },
+    "total_days_active": {
+      "aggregations": [
+        {"sum": {"alias": "total_active_days", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_days_active_per_user", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Total days active metrics"
+    },
+    "total_revenue": {
+      "aggregations": [
+        {"sum": {"alias": "total_lifetime_revenue", "format": "currency", "currency": "USD", "decimals": 2}},
+        {"avg": {"alias": "avg_revenue_per_user", "format": "currency", "currency": "USD", "decimals": 2}}
+      ],
+      "formula": null,
+      "description": "Lifetime revenue metrics"
+    },
+    "events_7d": {
+      "aggregations": [
+        {"sum": {"alias": "total_events_7d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_events_7d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "7-day event metrics"
+    },
+    "events_30d": {
+      "aggregations": [
+        {"sum": {"alias": "total_events_30d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_events_30d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "30-day event metrics"
+    },
+    "events_90d": {
+      "aggregations": [
+        {"sum": {"alias": "total_events_90d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_events_90d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "90-day event metrics"
+    },
+    "sessions_7d": {
+      "aggregations": [
+        {"sum": {"alias": "total_sessions_7d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_sessions_7d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "7-day session metrics"
+    },
+    "sessions_30d": {
+      "aggregations": [
+        {"sum": {"alias": "total_sessions_30d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_sessions_30d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "30-day session metrics"
+    },
+    "sessions_90d": {
+      "aggregations": [
+        {"sum": {"alias": "total_sessions_90d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_sessions_90d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "90-day session metrics"
+    },
+    "days_active_7d": {
+      "aggregations": [
+        {"sum": {"alias": "total_days_active_7d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_days_active_7d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "7-day active days metrics"
+    },
+    "days_active_30d": {
+      "aggregations": [
+        {"sum": {"alias": "total_days_active_30d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_days_active_30d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "30-day active days metrics"
+    },
+    "days_active_90d": {
+      "aggregations": [
+        {"sum": {"alias": "total_days_active_90d", "format": "number", "decimals": 0}},
+        {"avg": {"alias": "avg_days_active_90d", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "90-day active days metrics"
+    },
+    "revenue_7d": {
+      "aggregations": [
+        {"sum": {"alias": "total_revenue_7d", "format": "currency", "currency": "USD", "decimals": 2}},
+        {"avg": {"alias": "avg_revenue_7d", "format": "currency", "currency": "USD", "decimals": 2}}
+      ],
+      "formula": null,
+      "description": "7-day revenue metrics"
+    },
+    "revenue_30d": {
+      "aggregations": [
+        {"sum": {"alias": "total_revenue_30d", "format": "currency", "currency": "USD", "decimals": 2}},
+        {"avg": {"alias": "avg_revenue_30d", "format": "currency", "currency": "USD", "decimals": 2}}
+      ],
+      "formula": null,
+      "description": "30-day revenue metrics"
+    },
+    "revenue_90d": {
+      "aggregations": [
+        {"sum": {"alias": "total_revenue_90d", "format": "currency", "currency": "USD", "decimals": 2}},
+        {"avg": {"alias": "avg_revenue_90d", "format": "currency", "currency": "USD", "decimals": 2}}
+      ],
+      "formula": null,
+      "description": "90-day revenue metrics"
+    },
+    "largest_transaction": {
+      "aggregations": [
+        {"max": {"alias": "max_transaction", "format": "currency", "currency": "USD", "decimals": 2}},
+        {"avg": {"alias": "avg_largest_transaction", "format": "currency", "currency": "USD", "decimals": 2}}
+      ],
+      "formula": null,
+      "description": "Largest transaction metrics"
+    },
+    "days_since_last_event": {
+      "aggregations": [
+        {"avg": {"alias": "avg_days_since_last_event", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "Recency metrics"
+    },
+    "days_active_span": {
+      "aggregations": [
+        {"avg": {"alias": "avg_user_lifespan_days", "format": "number", "decimals": 1}}
+      ],
+      "formula": null,
+      "description": "User lifespan metrics"
+    },
+    "max_lifecycle_stage_name":{
+      "aggregations":[],
+      "formula":{
+        "consideration_user_count":{
+          "sql":"SUM(CASE WHEN max_lifecycle_stage_name = 'consideration' THEN 1 ELSE 0 END)",
+          "format":"number",
+          "decimals":0, 
+          "discription":"Total count of users who have a max lifecycle stage name of consideration"
+        },
+        "trial_user_count":{
+          "sql":"SUM(CASE WHEN max_lifecycle_stage_name = 'trial' THEN 1 ELSE 0 END)",
+          "format":"number",
+          "decimals":0, 
+          "discription":"Total count of users who have a max lifecycle stage name of trial"
+        },
+        "onboarding_user_count":{
+          "sql":"SUM(CASE WHEN max_lifecycle_stage_name = 'activation' THEN 1 ELSE 0 END)",
+          "format":"number",
+          "decimals":0, 
+          "discription":"Total count of users who have a max lifecycle stage name of activation"
+        },
+        "customer_user_count":{
+          "sql":"SUM(CASE WHEN max_lifecycle_stage_name = 'retention' THEN 1 ELSE 0 END)",
+          "format":"number",
+          "decimals":0, 
+          "discription":"Total count of users who have a max lifecycle stage name of retention"
+        }
+      }
+    },
+    "has_activated": {
+      "aggregations": [],
+      "formula": {
+        "activation_rate": {
+          "sql": "AVG(CASE WHEN has_activated = 1 THEN 100.0 ELSE 0.0 END)",
+          "format": "percentage",
+          "decimals": 1,
+          "description": "User activation rate"
+        },
+        "total_activated_users": {
+          "sql": "SUM(CASE WHEN has_activated = 1 THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Count of activated users"
+        }
+      }
+    },
+    "is_active_7d": {
+      "aggregations": [],
+      "formula": {
+        "active_rate_7d": {
+          "sql": "AVG(CASE WHEN is_active_7d THEN 100.0 ELSE 0.0 END)",
+          "format": "percentage",
+          "decimals": 1,
+          "description": "7-day active user rate"
+        },
+        "total_active_7d": {
+          "sql": "SUM(CASE WHEN is_active_7d THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Count of 7-day active users"
+        }
+      }
+    },
+    "is_active_30d": {
+      "aggregations": [],
+      "formula": {
+        "active_rate_30d": {
+          "sql": "AVG(CASE WHEN is_active_30d THEN 100.0 ELSE 0.0 END)",
+          "format": "percentage",
+          "decimals": 1,
+          "description": "30-day active user rate"
+        },
+        "total_active_30d": {
+          "sql": "SUM(CASE WHEN is_active_30d THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Count of 30-day active users"
+        }
+      }
+    },
+    "is_paying_customer": {
+      "aggregations": [],
+      "formula": {
+        "paying_customer_rate": {
+          "sql": "AVG(CASE WHEN is_paying_customer THEN 100.0 ELSE 0.0 END)",
+          "format": "percentage",
+          "decimals": 1,
+          "description": "Paying customer conversion rate"
+        },
+        "total_paying_customers": {
+          "sql": "SUM(CASE WHEN is_paying_customer THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Count of paying customers"
+        }
+      }
+    },
+    "cookie_id": {
+      "aggregations": [],
+      "formula": {
+        "unique_users": {
+          "sql": "COUNT(DISTINCT cookie_id)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Count of unique users"
+        }
+      }
+    },
+    "first_touch_utm_medium": {
+      "aggregations": [],
+      "formula": {
+        "paid_first_touch_user_count": {
+          "sql": "SUM(CASE WHEN first_touch_utm_medium = 'cpc' THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total count of users whos first session came from a paid channel"
+        },
+        "email_touch_user_count": {
+          "sql": "SUM(CASE WHEN first_touch_utm_medium = 'email' THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total count of users whos first session came from email"
+        },
+        "organic_first_touch_user_count": {
+          "sql": "SUM(CASE WHEN first_touch_utm_medium = 'organic' THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total count of users whos first session came from an organic channel"
+        },
+        "social_first_touch_user_count": {
+          "sql": "SUM(CASE WHEN first_touch_utm_medium = 'social' THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total count of users whos first session came from a social referral"
+        }
+      }
+    },
+    "last_touch_utm_medium": {
+      "aggregations": [],
+      "formula": {
+        "paid_last_touch_user_count": {
+          "sql": "SUM(CASE WHEN last_touch_utm_medium = 'cpc' THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total count of users whos last session came from a paid channel"
+        },
+        "email_touch_user_count": {
+          "sql": "SUM(CASE WHEN last_touch_utm_medium = 'email' THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total count of users whos last session came from email"
+        },
+        "organic_first_touch_user_count": {
+          "sql": "SUM(CASE WHEN last_touch_utm_medium = 'organic' THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total count of users whos last session came from an organic channel"
+        },
+        "social_first_touch_user_count": {
+          "sql": "SUM(CASE WHEN last_touch_utm_medium = 'social' THEN 1 ELSE 0 END)",
+          "format": "number",
+          "decimals": 0,
+          "description": "Total count of users whos last session came from a social referral"
+        }
+      }
+    }
+  }
+}

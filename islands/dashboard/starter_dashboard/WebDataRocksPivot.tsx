@@ -31,17 +31,17 @@ export default function WebDataRocksPivot({
       // Load CSS
       const cssLink = document.createElement('link');
       cssLink.rel = 'stylesheet';
-      cssLink.href = '/starter_utils/webdatarocks.min.css';
+      cssLink.href = '/starter/webdatarocks.min.css';
       document.head.appendChild(cssLink);
 
       // Load toolbar JS
       const toolbarScript = document.createElement('script');
-      toolbarScript.src = '/starter_utils/webdatarocks.toolbar.min.js';
+      toolbarScript.src = '/starter/webdatarocks.toolbar.min.js';
       document.head.appendChild(toolbarScript);
 
       // Load main WebDataRocks JS
       const mainScript = document.createElement('script');
-      mainScript.src = '/starter_utils/webdatarocks.js';
+      mainScript.src = '/starter/webdatarocks.js';
       document.head.appendChild(mainScript);
 
       await new Promise((resolve) => {

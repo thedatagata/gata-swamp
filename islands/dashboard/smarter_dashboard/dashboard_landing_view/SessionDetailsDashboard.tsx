@@ -3,10 +3,11 @@ import { useEffect, useState } from "preact/hooks";
 import KPICard from "../../../../components/charts/KPICard.tsx";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
 import FunnelChart from "../../../charts/FunnelChart.tsx";
-import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitude.ts";
-import { sessionsDashboardQueries } from "../../../../utils/smarter/semantic-dashboard-queries.ts";
-import { generateDashboardChartConfig } from "../../../../utils/smarter/dashboard-chart-generator.ts";
-import { getModelConfig } from "../../../../utils/smarter/semantic-config.ts";
+import { createSemanticTables } from "../../../../utils/smarter/dashboard_utils/semantic-amplitude.ts";
+import { sessionsDashboardQueries } from "../../../../utils/smarter/overview_dashboards/semantic-dashboard-queries.ts";
+import { generateDashboardChartConfig } from "../../../../utils/smarter/autovisualization_dashboard/dashboard-chart-generator.ts";
+import { getSemanticMetadata } from "../../../../utils/smarter/dashboard_utils/semantic-config.ts";
+import { getSessionsKPIs } from "../../../../utils/smarter/overview_dashboards/kpi-queries.ts";
 
 function uint8ArrayToNumber(arr: Uint8Array): number {
   let result = 0;
@@ -70,10 +71,34 @@ export default function SessionDetailsDashboard({
       setError(null);
       
       try {
+        // Load KPIs using the same query as LandingOverview
+        const sessionsKPIRaw = await getSessionsKPIs(db);
+        const sessionsKPIData = sanitizeQueryData([sessionsKPIRaw])[0];
+        
+        // Build KPI data structure
+        const kpis: any = {
+          new_vs_returning: {
+            query: { title: "New vs Returning" },
+            data: [{ value: sessionsKPIData.new_vs_returning_30d }]
+          },
+          paid_vs_organic: {
+            query: { title: "Paid vs Organic" },
+            data: [{ value: sessionsKPIData.paid_vs_organic_30d }]
+          },
+          revenue: {
+            query: { title: "Revenue" },
+            data: [{ value: sessionsKPIData.revenue_last_30d }]
+          }
+        };
+        setKpiData(kpis);
+        
+        // Load charts using semantic queries
         const tables = createSemanticTables(db);
-        const results: any = {};
+        const charts: any = {};
         
         for (const query of sessionsDashboardQueries) {
+          if (query.chartType === 'kpi') continue; // Skip KPIs, we handle them above
+          
           const table = tables[query.table];
           if (!table) continue;
           
@@ -83,17 +108,8 @@ export default function SessionDetailsDashboard({
             filters: query.filters
           });
           const data = sanitizeQueryData(rawData);
-          results[query.id] = { query, data };
-        }
-
-        const kpis: any = {};
-        const charts: any = {};
-        
-        for (const [id, result] of Object.entries(results)) {
-          const { query, data } = result as any;
-          if (query.chartType === 'kpi') {
-            kpis[id] = { query, data };
-          } else if (query.chartType === 'funnel') {
+          
+          if (query.chartType === 'funnel') {
             const labels = data.map((row: any) => row[query.dimensions[0]]);
             const values = data.map((row: any) => row[query.measures[0]]);
             setFunnelData({
@@ -115,19 +131,18 @@ export default function SessionDetailsDashboard({
               if (!data || data.length === 0) continue;
               const config = generateDashboardChartConfig(query, data);
               if (config && typeof config === 'object' && config.type) {
-                charts[id] = { query, config };
+                charts[query.id] = { query, config };
               }
             } catch (chartError) {
-              console.error(`Failed to generate chart ${id}:`, chartError);
+              console.error(`Failed to generate chart ${query.id}:`, chartError);
             }
           }
         }
         
-        setKpiData(kpis);
         setChartData(charts);
 
         // Build column metadata from semantic layer instead of profiled data
-        const sessionsConfig = getModelConfig("sessions");
+        const sessionsConfig = getSemanticMetadata("sessions");
         const semanticFields = [
           ...Object.entries(sessionsConfig.dimensions).map(([key, config]: [string, any]) => ({
             column_name: key,
@@ -214,31 +229,20 @@ export default function SessionDetailsDashboard({
     }
   };
 
-  const getKPIValue = (id: string, measure: string) => {
+  const getKPIValue = (id: string) => {
     const kpi = kpiData[id];
     if (!kpi?.data?.[0]) return 0;
-    const value = kpi.data[0][measure];
+    const value = kpi.data[0].value;
     if (typeof value === 'bigint') return Number(value);
     if (value instanceof Uint8Array) return uint8ArrayToNumber(value);
     return value || 0;
   };
 
-  const sessionsConfig = getModelConfig("sessions");
+  const sessionsConfig = getSemanticMetadata("sessions");
   
-  // Revenue KPI with period comparison
-  const revenueCurrent = getKPIValue('revenue_comparison', 'revenue_last_30d');
-  const revenuePrevious = getKPIValue('revenue_comparison', 'revenue_prev_30d');
-  const revenueGrowth = revenuePrevious > 0 ? ((revenueCurrent - revenuePrevious) / revenuePrevious) * 100 : 0;
-  
-  // Sessions Count KPI with period comparison
-  const sessionsCurrent = getKPIValue('sessions_comparison', 'sessions_last_30d');
-  const sessionsPrevious = getKPIValue('sessions_comparison', 'sessions_prev_30d');
-  const sessionsGrowth = sessionsPrevious > 0 ? ((sessionsCurrent - sessionsPrevious) / sessionsPrevious) * 100 : 0;
-  
-  // New vs Returning KPI
-  const newVsReturningCurrent = getKPIValue('new_vs_returning', 'new_visitor_sessions');
-  const newVsReturningPrevious = getKPIValue('new_vs_returning', 'returning_visitor_sessions');
-  const newVsReturningChange = 0;
+  const newVsReturningCurrent = getKPIValue('new_vs_returning');
+  const paidVsOrganicCurrent = getKPIValue('paid_vs_organic');
+  const revenueCurrent = getKPIValue('revenue');
   
 
   if (error) {
@@ -296,13 +300,28 @@ export default function SessionDetailsDashboard({
         </div>
       )}
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Revenue" value={revenueCurrent} previousValue={revenuePrevious} 
-          changePercent={revenueGrowth} format="currency" decimals={0} loading={loading} />
-        <KPICard title="Traffic" value={sessionsCurrent} previousValue={sessionsPrevious}
-          changePercent={sessionsGrowth} format="number" loading={loading} />
-        <KPICard title="New Sessions" value={newVsReturningCurrent} format="number" loading={loading} />
-        <KPICard title="Returning Sessions" value={newVsReturningPrevious} format="number" loading={loading} />
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KPICard 
+          title="New vs Returning" 
+          value={newVsReturningCurrent} 
+          format="percentage" 
+          decimals={1}
+          loading={loading} 
+        />
+        <KPICard 
+          title="Paid vs Organic" 
+          value={paidVsOrganicCurrent} 
+          format="percentage" 
+          decimals={1}
+          loading={loading} 
+        />
+        <KPICard 
+          title="Revenue" 
+          value={revenueCurrent} 
+          format="currency" 
+          decimals={0}
+          loading={loading} 
+        />
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

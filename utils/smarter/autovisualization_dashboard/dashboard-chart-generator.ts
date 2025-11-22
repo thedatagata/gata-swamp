@@ -1,7 +1,7 @@
-// utils/semantic/dashboard-chart-generator.ts
+// utils/smarter/autovisualization_dashboard/dashboard-chart-generator.ts
 import type { ChartConfig } from "./chart-generator.ts";
-import { detectChartType } from "./auto-chart-detector.ts";
-import { getSemanticMetadata } from "./semantic-config.ts";
+import { createQueryValidator } from "../dashboard_utils/semantic-query-validator.ts";
+import { getSemanticMetadata } from "../dashboard_utils/semantic-config.ts";
 
 const COLOR_PALETTE = [
   '#8884d8', '#82ca9d', '#ffc658', '#ff7c7c',
@@ -16,9 +16,7 @@ function formatLabel(text: string): string {
     .replace(/30d/g, '(30d)');
 }
 
-// Convert Uint8Array to Number (for DuckDB integer values)
 function uint8ArrayToNumber(arr: Uint8Array): number {
-  // Read as little-endian 64-bit integer (first 8 bytes)
   let result = 0;
   for (let i = 0; i < Math.min(8, arr.length); i++) {
     result += arr[i] * Math.pow(256, i);
@@ -26,7 +24,6 @@ function uint8ArrayToNumber(arr: Uint8Array): number {
   return result;
 }
 
-// Helper to sanitize data - convert BigInt and Uint8Array to Number
 function sanitizeValue(value: any): any {
   if (typeof value === 'bigint') {
     return Number(value);
@@ -62,7 +59,6 @@ export function generateDashboardChartConfig(
     throw new Error('Data must be an array');
   }
 
-  // Sanitize data early - convert BigInt and Uint8Array to Number
   const sanitizedData = sanitizeData(data);
   console.log('Sanitized data:', sanitizedData);
 
@@ -72,41 +68,45 @@ export function generateDashboardChartConfig(
     throw new Error(`Table ${query.table} not found in semantic config`);
   }
 
-  const detection = detectChartType(
-    {
-      table: query.table,
-      dimensions: query.dimensions || [],
-      measures: query.measures || [],
-      filters: query.filters || [],
-      explanation: query.title || ""
-    },
-    semanticConfig,
-    sanitizedData
-  );
+  // Use semantic-query-validator to analyze query
+  const validator = createQueryValidator(query.table);
+  const analysis = validator.analyzeForVisualization({
+    table: query.table,
+    dimensions: (query.dimensions || []).map((d: any) => ({
+      alias: typeof d === 'string' ? d : d.alias,
+      sourceField: typeof d === 'string' ? d : d.sourceField,
+      transformation: null
+    })),
+    measures: (query.measures || []).map((m: any) => ({
+      alias: typeof m === 'string' ? m : m.alias,
+      sourceField: typeof m === 'string' ? m : m.sourceField,
+      aggregation: null,
+      formula: null,
+      type: 'aggregation' as const
+    })),
+    filters: query.filters || [],
+    sql: query.sql || ""
+  });
 
-  console.log('Chart detection result:', detection);
+  console.log('Chart detection result:', analysis);
+
+  // Extract dimensions and measures
+  const dimensions = (query.dimensions || []).map((d: any) => typeof d === 'string' ? d : d.alias);
+  const measures = (query.measures || []).map((m: any) => typeof m === 'string' ? m : m.alias);
 
   // Handle multiple dimensions + single measure (grouped bar chart)
   let xKey: string;
   let yKeys: string[];
   let formattedData: any[];
   
-  if (detection.config?.multiDimension && query.dimensions && query.dimensions.length >= 2 && query.measures.length === 1) {
+  if (dimensions.length >= 2 && measures.length === 1) {
     // Pivot data: first dimension = X-axis, other dimensions = bar groups
-    xKey = query.dimensions[0];
-    const groupDimension = query.dimensions[1];
-    const measure = query.measures[0];
+    xKey = dimensions[0];
+    const groupDimension = dimensions[1];
+    const measure = measures[0];
 
-    // Get unique values for grouping dimension
     const groupValues = [...new Set(sanitizedData.map(row => row[groupDimension]))];
-    console.log('Group values before String conversion:', groupValues);
-    yKeys = groupValues.map(v => {
-      if (typeof v === 'object' && v !== null) {
-        console.error('Found object in groupValues:', v);
-        return JSON.stringify(v);
-      }
-      return String(v);
-    });
+    yKeys = groupValues.map(v => String(v));
     
     // Pivot the data
     const pivoted = new Map<string, any>();
@@ -124,8 +124,8 @@ export function generateDashboardChartConfig(
     formattedData = Array.from(pivoted.values());
   } else {
     // Standard case
-    xKey = query.dimensions?.[0] || 'index';
-    yKeys = query.measures || [];
+    xKey = dimensions[0] || 'index';
+    yKeys = measures || [];
     
     if (yKeys.length === 0) {
       throw new Error('No measures specified for chart');
@@ -137,37 +137,54 @@ export function generateDashboardChartConfig(
     }));
   }
 
-  const modelConfig = semanticConfig;
   const format: any = {};
   
   yKeys.forEach(measure => {
-    const measureConfig = modelConfig.measures[measure];
+    const measureConfig = semanticConfig.measures[measure];
     if (measureConfig) {
-      format[measure] = {
-        type: measureConfig.format,
-        decimals: measureConfig.decimals || 0
-      };
+      // Check aggregations
+      if (measureConfig.aggregations) {
+        measureConfig.aggregations.forEach((agg: any) => {
+          const aggType = Object.keys(agg)[0];
+          const aggConfig = agg[aggType];
+          if (aggConfig.alias === measure) {
+            format[measure] = {
+              type: aggConfig.format,
+              decimals: aggConfig.decimals || 0
+            };
+          }
+        });
+      }
+      // Check formulas
+      if (measureConfig.formula && measureConfig.formula[measure]) {
+        format[measure] = {
+          type: measureConfig.formula[measure].format,
+          decimals: measureConfig.formula[measure].decimals || 0
+        };
+      }
     }
   });
 
-  const isTimeSeries = query.dimensions?.[0]?.includes('date') || 
-                       query.dimensions?.[0]?.includes('time');
+  const isTimeSeries = dimensions[0]?.includes('date') || 
+                       dimensions[0]?.includes('time');
 
-  const title = query.title || generateTitle(yKeys, query.dimensions);
+  const title = query.title || generateTitle(yKeys, dimensions);
+
+  const chartType = analysis.recommendedCharts[0]?.type || 'bar';
 
   const config: ChartConfig = {
-    type: detection.type,
+    type: chartType as ChartConfig['type'],
     title,
     xKey,
     yKeys,
     data: formattedData,
     config: {
       colors: COLOR_PALETTE.slice(0, yKeys.length),
-      stacked: detection.config?.barmode === 'stack',
+      stacked: analysis.queryType === 'breakdown',
       showLegend: yKeys.length > 1,
       showGrid: true,
       showTooltip: true,
-      orientation: detection.config?.orientation === 'h' ? 'horizontal' : 'vertical',
+      orientation: 'vertical',
       isTimeSeries,
       format
     }

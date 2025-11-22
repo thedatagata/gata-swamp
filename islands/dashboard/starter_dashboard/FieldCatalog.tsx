@@ -1,5 +1,5 @@
 // islands/dashboard/starter_dashboard/FieldCatalog.tsx
-import metadata from "../../../static/starter_utils/users-pivot-metadata.json" with { type: "json" };
+import metadata from "../../../static/starter/users-pivot-metadata.json" with { type: "json" };
 
 interface FieldInfo {
   name: string;

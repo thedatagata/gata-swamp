@@ -12,7 +12,7 @@ interface DashboardRouterProps {
 }
 
 export default function DashboardRouter({ motherDuckToken, sessionId, ldClientId }: DashboardRouterProps) {
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'smarter' | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'smarter' | null>('smarter');
   const [smartDashInitialized, setSmartDashInitialized] = useState(false);
   const [db, setDb] = useState<any>(null);
   const [webllmEngine, setWebllmEngine] = useState<any>(null);

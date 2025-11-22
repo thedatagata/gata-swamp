@@ -1,11 +1,11 @@
 // islands/dashboard/smarter_dashboard/semantic_dashboard/AutoVisualizationExperience.tsx
 import { useEffect, useState } from "preact/hooks";
-import { WebLLMSemanticHandler } from "../../../../utils/smarter/webllm-handler.ts";
-import { createSemanticTables } from "../../../../utils/smarter/semantic-amplitude.ts";
-import { generateChartFromAnalysis } from "../../../../utils/smarter/chart-generator.ts";
-import { getSemanticMetadata } from "../../../../utils/smarter/semantic-config.ts";
+import { WebLLMSemanticHandler } from "../../../../utils/smarter/autovisualization_dashboard/webllm-handler.ts";
+import { createSemanticTables } from "../../../../utils/smarter/dashboard_utils/semantic-amplitude.ts";
+import { generateChartFromAnalysis } from "../../../../utils/smarter/autovisualization_dashboard/chart-generator.ts";
+import { getSemanticMetadata } from "../../../../utils/smarter/dashboard_utils/semantic-config.ts";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
-import type { ChartConfig } from "../../../../utils/smarter/chart-generator.ts";
+import type { ChartConfig } from "../../../../utils/smarter/autovisualization_dashboard/chart-generator.ts";
 
 interface AutoVisualizationExperienceProps {
   db: any;

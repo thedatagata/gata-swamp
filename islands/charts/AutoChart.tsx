@@ -1,7 +1,7 @@
 // islands/charts/AutoChart.tsx
 import { useEffect, useRef } from "preact/hooks";
 import { Chart, registerables } from "chart.js";
-import type { ChartConfig } from "../../utils/smarter/chart-generator.ts";
+import type { ChartConfig } from "../../utils/smarter/autovisualization_dashboard/chart-generator.ts";
 
 interface AutoChartProps {
   config: ChartConfig;
