@@ -8,9 +8,10 @@ import LandingPageDashboard from "../dashboard/smarter_dashboard/dashboard_landi
 interface DashboardRouterProps {
   motherDuckToken: string;
   sessionId: string;
+  ldClientId?: string;
 }
 
-export default function DashboardRouter({ motherDuckToken, sessionId }: DashboardRouterProps) {
+export default function DashboardRouter({ motherDuckToken, sessionId, ldClientId }: DashboardRouterProps) {
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'smarter' | null>(null);
   const [smartDashInitialized, setSmartDashInitialized] = useState(false);
   const [db, setDb] = useState<any>(null);
@@ -31,7 +32,7 @@ export default function DashboardRouter({ motherDuckToken, sessionId }: Dashboar
   };
 
   if (!selectedPlan) {
-    return <PlanSelection onSelectPlan={setSelectedPlan} />;
+    return <PlanSelection onSelectPlan={setSelectedPlan} ldClientId={ldClientId} />;
   }
 
   if (selectedPlan === 'starter') {

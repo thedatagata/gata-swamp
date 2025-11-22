@@ -5,22 +5,25 @@ import DashboardRouter from "../../islands/onboarding/DashboardRouter.tsx";
 interface DashboardData {
   motherDuckToken: string;
   sessionId: string;
+  ldClientId?: string;
 }
 
 export const handler: Handlers<DashboardData> = {
   async GET(req, ctx) {
     const motherDuckToken = Deno.env.get("MOTHERDUCK_TOKEN") || "";
+    const ldClientId = Deno.env.get("LAUNCHDARKLY_CLIENT_ID");
     const sessionId = ctx.state.sessionId;
     
     return ctx.render({ 
       motherDuckToken,
-      sessionId 
+      sessionId,
+      ldClientId
     });
   }
 };
 
 export default function DashboardPage({ data }: PageProps<DashboardData>) {
-  const { motherDuckToken, sessionId } = data;
+  const { motherDuckToken, sessionId, ldClientId } = data;
 
   if (!motherDuckToken) {
     return (
@@ -41,6 +44,7 @@ export default function DashboardPage({ data }: PageProps<DashboardData>) {
     <DashboardRouter 
       motherDuckToken={motherDuckToken}
       sessionId={sessionId}
+      ldClientId={ldClientId}
     />
   );
 }

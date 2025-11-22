@@ -11,6 +11,7 @@ import * as $api_query_approve from "./routes/api/query/approve.ts";
 import * as $app_dashboard from "./routes/app/dashboard.tsx";
 import * as $app_index from "./routes/app/index.tsx";
 import * as $app_loading from "./routes/app/loading.tsx";
+import * as $checkout from "./routes/checkout.tsx";
 import * as $health from "./routes/health.ts";
 import * as $index from "./routes/index.tsx";
 import * as $app_utils_ScrollToTop from "./islands/app_utils/ScrollToTop.tsx";
@@ -42,6 +43,7 @@ const manifest = {
     "./routes/app/dashboard.tsx": $app_dashboard,
     "./routes/app/index.tsx": $app_index,
     "./routes/app/loading.tsx": $app_loading,
+    "./routes/checkout.tsx": $checkout,
     "./routes/health.ts": $health,
     "./routes/index.tsx": $index,
   },

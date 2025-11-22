@@ -4,6 +4,7 @@ import { TableProfiler } from "../../../utils/services/table-profiler.ts";
 import { metadataStore } from "../../../utils/services/metadata-store.ts";
 import { createSemanticTables } from "../../../utils/smarter/semantic-amplitude.ts";
 import { WebLLMSemanticHandler } from "../../../utils/smarter/webllm-handler.ts";
+import { getLDClient } from "../../../utils/launchdarkly/client.ts";
 
 export interface LoadingProgress {
   step: "duckdb" | "semantic" | "webllm" | "complete";
@@ -116,7 +117,8 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
         });
 
         // Initialize WebLLM with semantic layer
-        const llmHandler = new WebLLMSemanticHandler(semanticTables, "large");
+        const ldClient = getLDClient();
+        const llmHandler = new WebLLMSemanticHandler(semanticTables, "large", ldClient);
         await llmHandler.initialize((progress) => {
           const webllmProgress = 60 + (progress.progress || 0) * 35;
           setLoading({

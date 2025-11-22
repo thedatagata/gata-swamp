@@ -1,5 +1,5 @@
 // islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingPageDashboard.tsx
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import LandingOverview from "./LandingOverview.tsx";
 import CacheManagementModal from "../CacheManagementModal.tsx";
 import SessionDetailsDashboard from "./SessionDetailsDashboard.tsx";
@@ -7,6 +7,8 @@ import UserDetailsDashboard from "./UserDetailsDashboard.tsx";
 import AutoVisualizationExperience from "../semantic_dashboard/AutoVisualizationExperience.tsx";
 import { metadataStore } from "../../../../utils/services/metadata-store.ts";
 import { TableProfiler } from "../../../../utils/services/table-profiler.ts";
+import { getLDClient, subscribeToFlagChanges, unsubscribeFromFlagChanges } from "../../../../utils/launchdarkly/client.ts";
+import { trackInteraction, trackView } from "../../../../utils/launchdarkly/events.ts";
 
 type ViewType = "overview" | "sessions" | "users" | "autoviz";
 
@@ -20,6 +22,28 @@ export default function LandingPageDashboard({ db, webllmEngine }: LandingPageDa
   const [querySpec, setQuerySpec] = useState<any>(null);
   const [showCacheModal, setShowCacheModal] = useState(false);
   const [cacheError, setCacheError] = useState<string | null>(null);
+  const [cacheFeatureEnabled, setCacheFeatureEnabled] = useState(false);
+
+  // Flag 3: Cache Management Feature Flag
+  useEffect(() => {
+    const ldClient = getLDClient();
+    if (ldClient) {
+      const enabled = ldClient.variation("cache-management-enabled", false);
+      setCacheFeatureEnabled(enabled);
+      
+      // Listen for kill switch activation
+      const flagHandler = (newValue: boolean) => {
+        setCacheFeatureEnabled(newValue);
+        if (!newValue && showCacheModal) {
+          setShowCacheModal(false);
+          setCacheError("Cache management temporarily unavailable");
+        }
+      };
+      
+      subscribeToFlagChanges("cache-management-enabled", flagHandler);
+      return () => unsubscribeFromFlagChanges("cache-management-enabled", flagHandler);
+    }
+  }, [showCacheModal]);
 
   async function handleProfileTable(tableName: string) {
     try {
@@ -67,14 +91,21 @@ export default function LandingPageDashboard({ db, webllmEngine }: LandingPageDa
             </div>
 
             <div class="flex items-center space-x-4">
-              {/* Cache Management Button */}
-              <button
-                onClick={() => setShowCacheModal(true)}
-                class="px-3 py-1.5 bg-gata-dark/60 text-gata-cream border border-gata-green/30 rounded hover:bg-gata-dark/80 transition-colors text-sm flex items-center gap-2"
-              >
-                <span>💾</span>
-                <span>Cache</span>
-              </button>
+              {/* Cache Management Button - Flag 3 */}
+              {cacheFeatureEnabled && (
+                <button
+                  onClick={() => {
+                    trackInteraction("click", "cache_button", "cache_management", "LandingPageDashboard", {
+                      plan: "smarter"
+                    });
+                    setShowCacheModal(true);
+                  }}
+                  class="px-3 py-1.5 bg-gata-dark/60 text-gata-cream border border-gata-green/30 rounded hover:bg-gata-dark/80 transition-colors text-sm flex items-center gap-2"
+                >
+                  <span>💾</span>
+                  <span>Cache</span>
+                </button>
+              )}
 
               <div class="flex items-center space-x-2 text-sm text-gata-green">
                 <span class="w-2 h-2 bg-gata-green rounded-full"></span>

@@ -9,16 +9,23 @@ import {
   handle1MBLimitError,
   is1MBLimitError
 } from "../../../utils/starter/pivot-query-builder.ts";
+import { getLDClient } from "../../../utils/launchdarkly/client.ts";
+import { trackView, trackInteraction } from "../../../utils/launchdarkly/events.ts";
 
 interface BaseDashboardWizardProps {
   motherDuckToken: string;
+  sessionId: string;
   onUpgrade?: () => void;
 }
 
-export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: BaseDashboardWizardProps) {
+export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgrade }: BaseDashboardWizardProps) {
   const [client, setClient] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // LaunchDarkly AI access state
+  const [hasAIAccess, setHasAIAccess] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   const [sqlQuery, setSqlQuery] = useState<string>(`SELECT total_events, total_revenue, max_lifecycle_stage_name FROM amplitude.users_fct WHERE last_event_date >= CURRENT_DATE - INTERVAL 30 DAYS`);
   
@@ -36,6 +43,7 @@ export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: Base
 
   useEffect(() => {
     initializeClient();
+    checkAIAccess();
   }, [motherDuckToken]);
 
   async function initializeClient() {
@@ -50,12 +58,61 @@ export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: Base
     }
   }
 
+  function checkAIAccess() {
+    const ldClient = getLDClient();
+    if (ldClient) {
+      const aiAccess = ldClient.variation("starter-ai-query-access", false);
+      setHasAIAccess(aiAccess);
+      
+      // Track view of gated feature
+      if (!aiAccess) {
+        trackView("gate", "feature_gate", "BaseDashboardWizard", {
+          plan: "starter",
+          feature: "ai_query_generation",
+          gateType: "plan_upgrade"
+        });
+      }
+    }
+  }
+
+  function handleAIPromptClick() {
+    if (!hasAIAccess) {
+      // Track gate interaction
+      trackInteraction("click", "ai_prompt_input", "feature_gate", "BaseDashboardWizard", {
+        plan: "starter",
+        featureRequested: "ai_query_access"
+      });
+      
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    // Allow normal interaction if user has access
+    // The textarea is already functional
+  }
+
   async function handleGenerateSQLFromPrompt() {
     if (!client || !naturalLanguagePrompt.trim()) return;
+    
+    if (!hasAIAccess) {
+      trackInteraction("submit", "ai_generate_button", "feature_gate", "BaseDashboardWizard", {
+        plan: "starter",
+        featureRequested: "ai_query_access"
+      });
+      setShowUpgradeModal(true);
+      return;
+    }
     
     setLoading(true);
     setError(null);
     setWarnings([]);
+    
+    // Track AI usage
+    trackInteraction("submit", "prompt_input", "query_builder", "BaseDashboardWizard", {
+      plan: "starter",
+      sqlMode: "ai",
+      promptLength: naturalLanguagePrompt.length
+    });
     
     try {
       console.log('🤖 Using MotherDuck AI to generate SQL...');
@@ -96,6 +153,13 @@ export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: Base
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🎯 EXECUTING QUERY');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // Track manual SQL execution
+    trackInteraction("submit", "execute_button", "query_builder", "BaseDashboardWizard", {
+      plan: "starter",
+      sqlMode: "manual",
+      queryLength: sqlQuery.length
+    });
     
     setLoading(true);
     setError(null);
@@ -188,27 +252,13 @@ export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: Base
   return (
     <div class="max-w-7xl mx-auto p-6 space-y-6">
       
-      {/* Persistent Pivot Container - Always in DOM */}
-      <div 
-        style={{ display: pivotReport ? 'block' : 'none' }} 
-        class="bg-gata-dark border border-gata-green/30 rounded-lg shadow-lg p-6"
-      >
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-bold text-gata-cream">📊 Interactive Pivot Table</h3>
-          {queryResults.length > 0 && (
-            <p class="text-sm text-gata-cream/70">
-              {queryResults.length.toLocaleString()} rows
-            </p>
-          )}
-        </div>
-        {pivotReport && (
-          <WebDataRocksPivot
-            data={pivotReport.data}
-            initialSlice={pivotReport.slice}
-            onLoadError={handlePivotLoadError}
-          />
-        )}
-      </div>
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <UpgradeModal 
+          feature="ai_query_access"
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      )}
       
       {/* Query Builder View */}
       <div style={{ display: !showResults ? 'block' : 'none' }}>
@@ -217,39 +267,65 @@ export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: Base
         
         {/* Natural Language Query Builder */}
         <div class="bg-gata-dark border border-gata-green/30 rounded-lg shadow-lg p-6 mb-6">
-        <h2 class="text-2xl font-bold text-gata-cream mb-2">💬 Your Personal Data Analyst</h2>
+        <h2 class="text-2xl font-bold text-gata-cream mb-2">
+          💬 Your Personal Data Analyst
+          {!hasAIAccess && <span class="ml-2 text-sm text-amber-400">🔒 Premium Feature</span>}
+        </h2>
         <p class="text-sm text-gata-cream/70 mb-4">
-          select the data you need to build the pivot table you wanted without having to export the data from the dashboard you didn't want to build in the first place
+          {hasAIAccess 
+            ? "select the data you need to build the pivot table you wanted without having to export the data from the dashboard you didn't want to build in the first place"
+            : "AI-powered query generation available with upgrade 🚀"
+          }
         </p>
 
         <div class="space-y-4">
-          <textarea
-            value={naturalLanguagePrompt}
-            onInput={(e) => setNaturalLanguagePrompt((e.target as HTMLTextAreaElement).value)}
-            placeholder="I want to look at [metrics] by [dimensions] over the past [amount of time]"
-            class="w-full h-32 px-4 py-3 bg-gata-dark/40 border border-gata-green/30 rounded-lg text-gata-cream placeholder-gata-cream/40 text-base focus:border-gata-green focus:ring-2 focus:ring-gata-green/20"
-          />
+          <div class="relative">
+            <textarea
+              value={naturalLanguagePrompt}
+              onInput={(e) => hasAIAccess && setNaturalLanguagePrompt((e.target as HTMLTextAreaElement).value)}
+              onClick={handleAIPromptClick}
+              placeholder={hasAIAccess 
+                ? "I want to look at [metrics] by [dimensions] over the past [amount of time]"
+                : "Upgrade to unlock AI query generation ✨"
+              }
+              disabled={!hasAIAccess}
+              class={`w-full h-32 px-4 py-3 bg-gata-dark/40 border rounded-lg text-base focus:ring-2 transition-all ${
+                hasAIAccess 
+                  ? 'border-gata-green/30 text-gata-cream placeholder-gata-cream/40 focus:border-gata-green focus:ring-gata-green/20 cursor-text'
+                  : 'border-amber-400/30 text-gata-cream/50 placeholder-amber-400/60 cursor-pointer opacity-70'
+              }`}
+            />
+            {!hasAIAccess && (
+              <div class="absolute inset-0 bg-gradient-to-t from-amber-500/10 to-transparent pointer-events-none rounded-lg" />
+            )}
+          </div>
 
           <button
             onClick={handleGenerateSQLFromPrompt}
             disabled={loading || !naturalLanguagePrompt.trim() || !client}
-            class="w-full py-3 bg-gata-green text-gata-dark font-semibold rounded-lg hover:bg-gata-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            class={`w-full py-3 font-semibold rounded-lg transition-all ${
+              hasAIAccess
+                ? 'bg-gata-green text-gata-dark hover:bg-gata-hover disabled:opacity-50 disabled:cursor-not-allowed'
+                : 'bg-amber-500 text-white hover:bg-amber-600 cursor-pointer'
+            }`}
           >
-            {loading ? '🤖 Generating SQL...' : !client ? '⏳ Connecting...' : '🤖 Generate SQL with MotherDuck AI'}
+            {!hasAIAccess ? '✨ Upgrade to Use AI Generation' : loading ? '🤖 Generating SQL...' : !client ? '⏳ Connecting...' : '🤖 Generate SQL with MotherDuck AI'}
           </button>
 
-          <div class="text-sm text-gata-cream/80 bg-gata-green/10 p-4 rounded-lg border border-gata-green/20">
-            <p class="font-semibold mb-2 text-gata-green">📝 Examples:</p>
-            <ul class="list-disc list-inside space-y-2">
-              <li>I want to look at <span class="text-gata-green font-medium">session revenue, trial signups</span> by <span class="text-cyan-300 font-medium">traffic source type, lifecycle stage</span> over the past <span class="text-amber-300 font-medium">3 months</span></li>
-              <li>Show me <span class="text-gata-green font-medium">activation events, conversion rate</span> by <span class="text-cyan-300 font-medium">traffic source, day of week</span> for the last <span class="text-amber-300 font-medium">30 days</span></li>
-              <li>I need <span class="text-gata-green font-medium">customer LTV, retention events</span> grouped by <span class="text-cyan-300 font-medium">plan tier, session frequency</span> in <span class="text-amber-300 font-medium">Q4 2024</span></li>
-            </ul>
-          </div>
+          {hasAIAccess && (
+            <div class="text-sm text-gata-cream/80 bg-gata-green/10 p-4 rounded-lg border border-gata-green/20">
+              <p class="font-semibold mb-2 text-gata-green">📝 Examples:</p>
+              <ul class="list-disc list-inside space-y-2">
+                <li>I want to look at <span class="text-gata-green font-medium">session revenue, trial signups</span> by <span class="text-cyan-300 font-medium">traffic source type, lifecycle stage</span> over the past <span class="text-amber-300 font-medium">3 months</span></li>
+                <li>Show me <span class="text-gata-green font-medium">activation events, conversion rate</span> by <span class="text-cyan-300 font-medium">traffic source, day of week</span> for the last <span class="text-amber-300 font-medium">30 days</span></li>
+                <li>I need <span class="text-gata-green font-medium">customer LTV, retention events</span> grouped by <span class="text-cyan-300 font-medium">plan tier, session frequency</span> in <span class="text-amber-300 font-medium">Q4 2024</span></li>
+              </ul>
+            </div>
+          )}
         </div>
       </div>
       
-      {/* SQL Query Builder */}
+      {/* SQL Query Builder - Always available */}
       <div class="bg-gata-dark border border-gata-green/30 rounded-lg shadow-lg p-6">
         <h2 class="text-2xl font-bold text-gata-cream mb-2">🔍 SQL Query Builder</h2>
         <p class="text-sm text-gata-cream/70 mb-4">
@@ -273,7 +349,7 @@ export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: Base
           <textarea
             value={sqlQuery}
             onInput={(e) => setSqlQuery((e.target as HTMLTextAreaElement).value)}
-            placeholder="SELECT session_date, traffic_source, session_revenue FROM amplitude.sessions_pivot_src WHERE session_date >= CURRENT_DATE - INTERVAL 3 MONTHS"
+            placeholder="SELECT total_events, total_revenue, max_lifecycle_stage_name FROM amplitude.users_fct WHERE last_event_date >= CURRENT_DATE - INTERVAL 30 DAYS"
             class="w-full h-48 px-3 py-2 bg-gata-dark/40 border border-gata-green/30 rounded-lg text-gata-cream placeholder-gata-cream/40 font-mono text-sm focus:border-gata-green focus:ring-2 focus:ring-gata-green/20"
           />
 
@@ -305,55 +381,138 @@ export default function BaseDashboardWizard({ motherDuckToken, onUpgrade }: Base
           </button>
         </div>
 
-          {/* Warnings */}
-          {warnings.length > 0 && (
-            <div class="p-3 bg-amber-950/30 border border-amber-400/50 rounded-lg">
-              {warnings.map((warning, i) => (
-                <p key={i} class="text-sm text-amber-200">{warning}</p>
-              ))}
+        {/* Warnings */}
+        {warnings.length > 0 && (
+          <div class="p-3 bg-amber-950/30 border border-amber-400/50 rounded-lg">
+            {warnings.map((warning, i) => (
+              <p key={i} class="text-sm text-amber-200">{warning}</p>
+            ))}
+          </div>
+        )}
+
+        {/* Error with upgrade button */}
+        {renderError()}
+
+        {/* Pivot Table - Always at Top */}
+        {pivotReport && (
+          <div class="bg-gata-dark border border-gata-green/30 rounded-lg shadow-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-gata-cream">📊 Interactive Pivot Table</h3>
+              {queryResults.length > 0 && (
+                <p class="text-sm text-gata-cream/70">
+                  {queryResults.length.toLocaleString()} rows
+                </p>
+              )}
             </div>
-          )}
+            <WebDataRocksPivot
+              data={pivotReport.data}
+              initialSlice={pivotReport.slice}
+              onLoadError={handlePivotLoadError}
+            />
+          </div>
+        )}
 
-          {/* Error with upgrade button */}
-          {renderError()}
+        {/* SQL Preview */}
+        {queryResults.length > 0 && (
+          <div class="bg-gata-dark border border-gata-green/30 rounded-lg shadow-lg p-6">
+            <h3 class="text-lg font-bold text-gata-cream mb-4">
+              📊 SQL Results Preview ({queryResults.length.toLocaleString()} rows)
+            </h3>
 
-      {/* Query Results Preview */}
-      {queryResults.length > 0 && (
-        <div class="bg-gata-dark border border-gata-green/30 rounded-lg shadow-lg p-6">
-          <h3 class="text-lg font-bold text-gata-cream mb-4">
-            📊 Query Results ({queryResults.length.toLocaleString()} rows)
-          </h3>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b border-gata-green/30">
-                  {Object.keys(queryResults[0]).map(col => (
-                    <th key={col} class="text-left p-2 text-gata-green font-mono text-xs">{col}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {queryResults.slice(0, 5).map((row, i) => (
-                  <tr key={i} class="border-b border-gata-green/10">
-                    {Object.values(row).map((val: any, j) => (
-                      <td key={j} class="p-2 text-gata-cream/80 font-mono text-xs">
-                        {typeof val === 'number' ? val.toLocaleString() : String(val)}
-                      </td>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gata-green/30">
+                    {Object.keys(queryResults[0]).map(col => (
+                      <th key={col} class="text-left p-2 text-gata-green font-mono text-xs">{col}</th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {queryResults.slice(0, 5).map((row, i) => (
+                    <tr key={i} class="border-b border-gata-green/10">
+                      {Object.values(row).map((val: any, j) => (
+                        <td key={j} class="p-2 text-gata-cream/80 font-mono text-xs">
+                          {typeof val === 'number' ? val.toLocaleString() : String(val)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          {queryResults.length > 5 && (
-            <p class="text-xs text-gata-cream/60 mt-3">
-              Showing first 5 of {queryResults.length.toLocaleString()} rows
-            </p>
-          )}
+            {queryResults.length > 5 && (
+              <p class="text-xs text-gata-cream/60 mt-3">
+                Showing first 5 of {queryResults.length.toLocaleString()} rows
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Temporary inline UpgradeModal until we create the separate component
+function UpgradeModal({ feature, onClose }: { feature: string; onClose: () => void }) {
+  useEffect(() => {
+    trackView("modal", "upsell", "UpgradeModal", {
+      plan: "starter",
+      contentType: "upgrade",
+      feature
+    });
+  }, []);
+
+  const handleUpgradeClick = () => {
+    trackInteraction("click", "upgrade_button", "upsell", "UpgradeModal", {
+      plan: "starter",
+      destination: "/checkout?plan=starter-ai",
+      feature
+    });
+    window.location.href = "/checkout?plan=starter-ai&feature=" + feature;
+  };
+
+  const handleDismiss = () => {
+    trackInteraction("dismiss", "modal_close", "upsell", "UpgradeModal", {
+      plan: "starter",
+      feature
+    });
+    onClose();
+  };
+
+  return (
+    <div 
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={handleDismiss}
+    >
+      <div 
+        class="bg-gata-dark border-2 border-gata-green rounded-lg p-8 max-w-md mx-4 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 class="text-2xl font-bold text-gata-green mb-3">✨ Unlock AI-Powered Queries</h2>
+        <p class="text-gata-cream/80 mb-6">
+          Generate SQL instantly with natural language prompts
+        </p>
+        <ul class="space-y-2 mb-6 text-gata-cream/70">
+          <li>✓ Natural language to SQL</li>
+          <li>✓ Query suggestions</li>
+          <li>✓ Error corrections</li>
+        </ul>
+        <div class="flex gap-3">
+          <button
+            onClick={handleUpgradeClick}
+            class="flex-1 py-3 bg-gata-green text-gata-dark font-semibold rounded-lg hover:bg-gata-hover transition-all"
+          >
+            Add AI to Starter Plan
+          </button>
+          <button
+            onClick={handleDismiss}
+            class="px-6 py-3 bg-gata-dark/40 text-gata-cream border border-gata-green/30 rounded-lg hover:bg-gata-dark/60 transition-all"
+          >
+            Maybe Later
+          </button>
         </div>
-      )}
       </div>
     </div>
   );

@@ -30,6 +30,8 @@ export class WebLLMSemanticHandler {
   private engine: any;
   private modelId: string;
   private useValidation: boolean;
+  private maxTokens: number;
+  private temperature: number;
 
   private static MODEL_TIERS = {
     small: "Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC",
@@ -40,11 +42,38 @@ export class WebLLMSemanticHandler {
   constructor(
     private semanticTables: { sessions: SemanticReportObj; users: SemanticReportObj },
     tier: "small" | "medium" | "large" = "large",
+    private ldClient?: any
   ) {
-    this.modelId = WebLLMSemanticHandler.MODEL_TIERS[tier];
-    this.useValidation = tier !== "large";
+    // Flag 2: Get AI model config from LaunchDarkly
+    if (ldClient) {
+      const modelConfig = ldClient.variation("webllm-model-config", {
+        model: "Qwen2.5-Coder-7B-Instruct-q4f16_1-MLC",
+        tier: "large",
+        maxTokens: 500,
+        temperature: 0.0
+      });
+      
+      this.modelId = modelConfig.model;
+      this.maxTokens = modelConfig.maxTokens;
+      this.temperature = modelConfig.temperature;
+      this.useValidation = modelConfig.tier !== "large";
+      
+      console.log(`🤖 [WebLLM] Model config from LaunchDarkly:`, modelConfig);
+      
+      // Track model loaded for experimentation
+      ldClient.track("ai-model-loaded", {
+        model: this.modelId,
+        tier: modelConfig.tier
+      });
+    } else {
+      // Fallback to hardcoded
+      this.modelId = WebLLMSemanticHandler.MODEL_TIERS[tier];
+      this.maxTokens = 500;
+      this.temperature = 0.0;
+      this.useValidation = tier !== "large";
+    }
     
-    console.log(`🤖 [WebLLM] Model: ${tier}, Validation: ${this.useValidation ? "enabled" : "disabled"}`);
+    console.log(`🤖 [WebLLM] Model: ${this.modelId}, Validation: ${this.useValidation ? "enabled" : "disabled"}`);
   }
 
   async initialize(onProgress?: (progress: any) => void) {
@@ -73,6 +102,20 @@ export class WebLLMSemanticHandler {
     console.log("🤖 [WebLLM] Starting SQL generation from prompt...");
     console.log("📝 [WebLLM] User prompt:", userPrompt);
 
+    // Flag 4: Get query validation strategy
+    let shouldValidate = this.useValidation; // default based on model tier
+    if (this.ldClient) {
+      const strategy = this.ldClient.variation("query-validation-strategy", "adaptive");
+      console.log(`🔍 [WebLLM] Validation strategy: ${strategy}`);
+      
+      if (strategy === "strict") {
+        shouldValidate = true;
+      } else if (strategy === "fast") {
+        shouldValidate = false;
+      }
+      // "adaptive" uses default this.useValidation
+    }
+
     let sql: string;
     let table = preferredTable;
     let data: any[] = [];
@@ -87,8 +130,8 @@ export class WebLLMSemanticHandler {
         const result = await this.generateSQLFromPrompt(userPrompt, preferredTable);
         sql = result.sql;
         table = result.table;
-      } else {
-        // Use validation feedback for retry
+      } else if (shouldValidate) {
+        // Use validation feedback for retry (only if validation enabled)
         metrics.validationUsed = true;
         const validation = validateSQLColumns(sql!, table);
         const correctionPrompt = generateSQLCorrectionPrompt(
@@ -99,6 +142,9 @@ export class WebLLMSemanticHandler {
         console.log(`🔄 [WebLLM] Retry ${metrics.attemptCount} with validation feedback...`);
         const result = await this.generateSQLFromPrompt(correctionPrompt, table);
         sql = result.sql;
+      } else {
+        // Fast mode - no retry, just fail
+        break;
       }
       
       // STEP 2: Try to execute SQL directly
@@ -148,6 +194,17 @@ export class WebLLMSemanticHandler {
 
     metrics.totalTimeMs = Date.now() - startTime;
     console.log(`✅ [WebLLM] Complete in ${metrics.totalTimeMs}ms, attempts: ${metrics.attemptCount}`);
+
+    // Track query performance for experimentation
+    if (this.ldClient) {
+      this.ldClient.track("ai-model-performance", {
+        model: this.modelId,
+        success: metrics.finalValid,
+        attempts: metrics.attemptCount,
+        totalTimeMs: metrics.totalTimeMs,
+        timestamp: Date.now()
+      });
+    }
 
     return { query: querySpec, data, metrics };
   }

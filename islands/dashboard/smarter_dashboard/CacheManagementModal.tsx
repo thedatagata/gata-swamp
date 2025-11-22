@@ -1,6 +1,7 @@
 // islands/dashboard/smarter_dashboard/CacheManagementModal.tsx
 import { useState, useEffect } from "preact/hooks";
 import { metadataStore, type CacheStatus } from "../../../utils/services/metadata-store.ts";
+import { trackInteraction, trackView } from "../../../utils/launchdarkly/events.ts";
 
 interface CacheManagementModalProps {
   isOpen: boolean;
@@ -19,6 +20,9 @@ export default function CacheManagementModal({
   useEffect(() => {
     if (isOpen) {
       loadCacheStatus();
+      trackView("modal", "cache_management", "CacheManagementModal", {
+        plan: "smarter"
+      });
     }
   }, [isOpen]);
 
@@ -31,6 +35,10 @@ export default function CacheManagementModal({
     setDeleting(tableName);
     try {
       await metadataStore.deleteTableMetadata(tableName);
+      trackInteraction("click", "delete_table", "cache_management", "CacheManagementModal", {
+        plan: "smarter",
+        value: tableName
+      });
       await loadCacheStatus();
       onCacheCleared();
     } catch (err) {
@@ -45,6 +53,10 @@ export default function CacheManagementModal({
     
     try {
       await metadataStore.clearAll();
+      trackInteraction("click", "clear_all_cache", "cache_management", "CacheManagementModal", {
+        plan: "smarter",
+        value: cacheStatus?.count
+      });
       await loadCacheStatus();
       onCacheCleared();
       onClose();

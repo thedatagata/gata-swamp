@@ -49,7 +49,7 @@ export default function WebDataRocksPivot({
       });
 
       console.log('✅ WebDataRocks assets loaded');
-      setAssetsLoaded(true); // Trigger re-render
+      setAssetsLoaded(true);
     };
 
     loadAssets();
@@ -62,7 +62,7 @@ export default function WebDataRocksPivot({
     }
     
     if (!containerRef.current || !data || data.length === 0) {
-      console.log('WebDataRocksPivot: Missing container, data, or empty data', {
+      console.log('WebDataRocksPivot: Missing container or data', {
         hasContainer: !!containerRef.current,
         hasData: !!data,
         dataLength: data?.length || 0
@@ -119,9 +119,9 @@ export default function WebDataRocksPivot({
         dataSource: {
           data: dataWithMetadata
         },
-        slice: slice,  // Add slice here alongside dataSource
+        slice: slice,
         options: {
-          showDefaultSlice: false,  // Keep this false
+          showDefaultSlice: false,
           grid: {
             type: "compact",
             showTotals: "on",
@@ -131,11 +131,11 @@ export default function WebDataRocksPivot({
       }
     });
 
-    // Set timeout to detect 1MB limit (10 seconds)
+    // Set timeout to detect data overload (3 seconds)
     loadTimeoutRef.current = window.setTimeout(() => {
       if (onLoadError) {
-        console.error('❌ Data load timeout - likely exceeded 1MB limit');
-        onLoadError('Data load timeout - likely exceeded 1MB limit');
+        console.error('❌ Data load timeout - likely data too large');
+        onLoadError('Data load timeout - data may be too large for free tier');
       }
     }, 3000);
 

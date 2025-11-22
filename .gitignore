@@ -85,3 +85,5 @@ coverage/
 
 # Misc
 .cache/
+
+IMPLEMENTATION_PLAN.md
