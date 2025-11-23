@@ -67,7 +67,7 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
           message: "Materializing users data locally...",
         });
 
-        const usersResult = await mdConn.evaluateStreamingQuery('SELECT * FROM my_db.amplitude.users_fct');
+        const usersResult = await mdConn.evaluateStreamingQuery('SELECT * FROM my_db.amplitude.users_pivot_src');
         const usersBatches = await usersResult.arrowStream.readAll();
         const usersArrow = new Arrow.Table(usersBatches);
         await localConn.insertArrowTable(usersArrow, { name: 'users_dim' });

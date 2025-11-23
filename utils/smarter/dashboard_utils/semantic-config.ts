@@ -336,34 +336,39 @@ export function generateSQLPrompt(table?: "sessions" | "users"): string {
     }
   });
 
-  return `You are a SQL generator for the ${metadata.table} table.
+  return `You are a SQL generator for the ${metadata.table} table (DuckDB dialect).
 ${metadata.description}
 
-USER WILL ASK USING THESE ALIAS NAMES. YOU MUST TRANSLATE TO SQL:
+USER SPEAKS IN ALIAS NAMES. YOU WRITE SQL USING SOURCE COLUMNS:
 
-DIMENSIONS (for GROUP BY):
+DIMENSIONS (User says alias → You write SQL with source):
 ${dimensionMappings.join('\n')}
 
-MEASURES (for SELECT with aggregations):
+MEASURES (User says alias → You write SQL with aggregation):
 ${measureMappings.join('\n')}
 
-CRITICAL RULES:
-1. User uses alias names (e.g., "avg_interest_events")
-2. You translate to SQL using the mappings above (e.g., AVG(interest_events))
-3. Always use the source column names in your SQL (interest_events, not avg_interest_events)
-4. Apply the correct aggregation/transformation as shown in the mapping
-5. Table name: ${metadata.table}
-6. Output ONLY the SQL query - no markdown, no explanations
+DUCKDB DATE SYNTAX:
+- Subtract time: date - INTERVAL '3 months' (NOT DATE_SUB with INTERVAL)
+- Add time: date + INTERVAL '1 day'
+- Date comparison: date < CURRENT_DATE - INTERVAL '6 months'
+- Examples:
+  WHERE first_session_date < CURRENT_DATE - INTERVAL '6 months'
+  WHERE last_event_date > CURRENT_DATE - INTERVAL '30 days'
 
-EXAMPLES:
-User: "avg_interest_events by traffic_source_type"
-SQL: SELECT traffic_source_type, AVG(interest_events) as avg_interest_events FROM ${metadata.table} GROUP BY traffic_source_type
+CRITICAL SQL RULES:
+1. User references = alias names (right side of arrow)
+2. Your SQL = source columns/transformations (left side of arrow)
+3. Always include FROM ${metadata.table}
+4. Use AS to return alias names in results
+5. Output ONLY valid SQL - no markdown, no explanations, no truncation
 
-User: "total_revenue by session_date"  
-SQL: SELECT session_date, SUM(session_revenue) as total_revenue FROM ${metadata.table} GROUP BY session_date
-
-User: "trial_signup_rate by user_status"
-SQL: SELECT CASE WHEN is_anonymous = 1 THEN 'Anonymous' ELSE 'Identified' END as user_status, AVG(CASE WHEN trial_signup = 1 THEN 100.0 ELSE 0.0 END) as trial_signup_rate FROM ${metadata.table} GROUP BY user_status`;
+CORRECT PATTERN:
+User: "avg_sessions_per_user by customer_type"
+SQL: SELECT 
+  CASE WHEN is_paying_customer = 1 THEN 'Paying' ELSE 'Free' END as customer_type,
+  AVG(total_sessions) as avg_sessions_per_user
+FROM ${metadata.table}
+GROUP BY customer_type`;
 }
 
 /**

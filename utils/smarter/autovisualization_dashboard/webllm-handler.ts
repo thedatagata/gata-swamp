@@ -125,31 +125,41 @@ export class WebLLMSemanticHandler {
         sql = result.sql;
         table = result.table;
       } else if (shouldValidate) {
-        // Retry with correction prompt
+        // Retry with correction prompt that includes original intent
         metrics.validationUsed = true;
         const validation = validator.validate(sql);
         console.log(`🔄 [WebLLM] Retry ${metrics.attemptCount} with corrections...`);
-        const result = await this.generateSQLFromPrompt(validation.correctionPrompt!, table);
+        
+        // Build correction that preserves user intent
+        const correctionWithIntent = `${validation.correctionPrompt}
+
+USER'S ORIGINAL REQUEST: "${userPrompt}"
+
+Fix the errors above while answering the user's request.`;
+        
+        const result = await this.generateSQLFromPrompt(correctionWithIntent, table);
         sql = result.sql;
       } else {
         break; // Fast mode - no retry
       }
       
-      // Validate SQL
-      const validation = validator.validate(sql);
-      
-      if (metrics.attemptCount === 1) {
-        metrics.initialValid = validation.valid;
-        metrics.errorTypes = validation.errors.map(e => e.type);
-      }
-      
-      if (!validation.valid) {
-        console.warn(`⚠️ [WebLLM] Validation failed:`, validation.errors.map(e => e.message));
+      // Only validate on retry attempts
+      if (metrics.attemptCount > 1) {
+        const validation = validator.validate(sql);
         
-        if (metrics.attemptCount >= 3) {
-          throw new Error(`SQL validation failed after 3 attempts. Errors: ${validation.errors.map(e => e.message).join('; ')}`);
+        if (metrics.attemptCount === 1) {
+          metrics.initialValid = validation.valid;
+          metrics.errorTypes = validation.errors.map(e => e.type);
         }
-        continue;
+        
+        if (!validation.valid) {
+          console.warn(`⚠️ [WebLLM] Validation failed:`, validation.errors.map(e => e.message));
+          
+          if (metrics.attemptCount >= 3) {
+            throw new Error(`SQL validation failed after 3 attempts. Errors: ${validation.errors.map(e => e.message).join('; ')}`);
+          }
+          continue;
+        }
       }
       
       // Execute SQL
@@ -161,19 +171,15 @@ export class WebLLMSemanticHandler {
         console.log(`✅ [WebLLM] Success - ${data.length} rows`);
         metrics.finalValid = true;
         
-        // Build response with parsed query structure
+        // Parse query to extract dimensions/measures
+        const parsed = this.parseQueryForChart(sql);
+        
         const querySpec: QueryResponse = {
           table,
-          dimensions: validation.parsed!.dimensions.map(d => ({
-            alias: d.alias,
-            sourceField: d.sourceField
-          })),
-          measures: validation.parsed!.measures.map(m => ({
-            alias: m.alias,
-            sourceField: m.sourceField
-          })),
-          filters: validation.parsed!.filters,
-          explanation: `Analyzing ${validation.parsed!.measures.map(m => m.alias).join(', ')} ${validation.parsed!.dimensions.length > 0 ? 'by ' + validation.parsed!.dimensions.map(d => d.alias).join(', ') : ''}`,
+          dimensions: parsed.dimensions,
+          measures: parsed.measures,
+          filters: parsed.filters,
+          explanation: `Analyzing ${parsed.measures.map(m => m.alias).join(', ')} ${parsed.dimensions.length > 0 ? 'by ' + parsed.dimensions.map(d => d.alias).join(', ') : ''}`,
           sql
         };
 
@@ -238,6 +244,68 @@ Generate the SQL query:`;
     console.log("✅ [WebLLM] Generated SQL:", sql);
     
     return { sql, table: preferredTable };
+  }
+
+  /**
+   * Simple parser for chart generation - extracts measures/dimensions from SQL
+   */
+  private parseQueryForChart(sql: string): {
+    dimensions: Array<{ alias: string; sourceField: string }>;
+    measures: Array<{ alias: string; sourceField: string }>;
+    filters: string[];
+  } {
+    const dimensions: Array<{ alias: string; sourceField: string }> = [];
+    const measures: Array<{ alias: string; sourceField: string }> = [];
+    
+    // Extract SELECT columns with aliases
+    const selectMatch = sql.match(/SELECT\s+(.*?)\s+FROM/is);
+    if (selectMatch) {
+      const selectText = selectMatch[1];
+      
+      // Simple split by commas (not perfect but good enough)
+      const cols = selectText.split(/,(?![^(]*\))/);
+      
+      cols.forEach(col => {
+        col = col.trim();
+        
+        // Extract alias
+        const aliasMatch = col.match(/\s+[Aa][Ss]\s+(\w+)$/);
+        const alias = aliasMatch ? aliasMatch[1] : null;
+        
+        if (!alias) return;
+        
+        // Check if it's an aggregation (measure)
+        if (/^(SUM|AVG|COUNT|MAX|MIN)\s*\(/i.test(col)) {
+          // Extract field from aggregation
+          const fieldMatch = col.match(/\(\s*(?:DISTINCT\s+)?(\w+)\s*\)/i);
+          const field = fieldMatch ? fieldMatch[1] : alias;
+          
+          measures.push({ alias, sourceField: field });
+        }
+      });
+    }
+    
+    // Extract GROUP BY (dimensions)
+    const groupByMatch = sql.match(/GROUP\s+BY\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/is);
+    if (groupByMatch) {
+      const groupCols = groupByMatch[1].split(',');
+      groupCols.forEach(col => {
+        col = col.trim();
+        dimensions.push({ 
+          alias: col, 
+          sourceField: col 
+        });
+      });
+    }
+    
+    // Extract filters
+    const filters: string[] = [];
+    const whereMatch = sql.match(/WHERE\s+(.+?)(?:\s+GROUP|\s+ORDER|\s+LIMIT|$)/is);
+    if (whereMatch) {
+      filters.push(whereMatch[1].trim());
+    }
+    
+    return { dimensions, measures, filters };
   }
 
   async chat(prompt: string): Promise<string> {

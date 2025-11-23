@@ -46,11 +46,14 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
   const [error, setError] = useState<string | null>(null);
   const [promptInput, setPromptInput] = useState("");
   const [generatedSQL, setGeneratedSQL] = useState("");
+  const [editedSQL, setEditedSQL] = useState("");
   const [sqlExplanation, setSqlExplanation] = useState("");
   const [querySpec, setQuerySpec] = useState<any>(null);
   const [sqlGenerating, setSqlGenerating] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [showCatalog, setShowCatalog] = useState(false);
   const [generatedChart, setGeneratedChart] = useState<any>(null);
+  const [kpiResult, setKpiResult] = useState<{value: number, title: string} | null>(null);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -144,6 +147,7 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
     if (!promptInput.trim() || !webllmEngine) return;
     setSqlGenerating(true);
     setError(null);
+    setLastError(null);
     setGeneratedChart(null);
     
     try {
@@ -157,10 +161,22 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
       });
       
       setGeneratedSQL(query.sql);
+      setEditedSQL(query.sql); // Initialize editable version
       setSqlExplanation(query.explanation);
       
-      // Generate chart from data
-      if (data.length > 0) {
+      // Check if this is a KPI (single row, single measure, no dimensions)
+      const isKPI = data.length === 1 && query.measures.length === 1 && query.dimensions.length === 0;
+      
+      if (isKPI && data.length > 0) {
+        // Display as KPI card
+        const measure = query.measures[0];
+        const measureKey = measure.alias || measure.sourceField;
+        setKpiResult({
+          value: data[0][measureKey],
+          title: measure.alias?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Result'
+        });
+      } else if (data.length > 0) {
+        // Generate chart from data
         const chartConfig = generateDashboardChartConfig(
           {
             dimensions: query.dimensions,
@@ -179,7 +195,65 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
       
     } catch (error) {
       console.error("Failed to execute query:", error);
+      setLastError(error.message);
       setError(`Query failed: ${error.message}`);
+    } finally {
+      setSqlGenerating(false);
+    }
+  };
+
+  const handleExecuteEditedSQL = async () => {
+    if (!editedSQL.trim() || !db) return;
+    setSqlGenerating(true);
+    setError(null);
+    setGeneratedChart(null);
+    setKpiResult(null);
+    
+    try {
+      const tables = createSemanticTables(db);
+      const result = await tables.users.db.query(editedSQL);
+      const data = sanitizeQueryData(result.toArray().map((row: any) => row.toJSON()));
+      
+      // Auto-detect columns from data
+      const columns = data.length > 0 ? Object.keys(data[0]) : [];
+      const firstRow = data[0] || {};
+      
+      // Detect measures (numeric) vs dimensions (non-numeric)
+      const detectedMeasures = columns.filter(col => typeof firstRow[col] === 'number');
+      const detectedDimensions = columns.filter(col => typeof firstRow[col] !== 'number');
+      
+      // Single numeric value = KPI
+      const isKPI = data.length === 1 && columns.length === 1 && detectedMeasures.length === 1;
+      
+      if (isKPI) {
+        // Display as KPI card
+        const measureColumn = detectedMeasures[0];
+        setKpiResult({
+          value: firstRow[measureColumn],
+          title: measureColumn.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        });
+      } else if (data.length > 0) {
+        // Generate chart from data
+        const chartConfig = generateDashboardChartConfig(
+          {
+            dimensions: detectedDimensions,
+            measures: detectedMeasures,
+            chartType: 'bar',
+            title: promptInput || 'Custom Query'
+          },
+          data
+        );
+        
+        if (chartConfig) {
+          setGeneratedChart(chartConfig);
+          console.log('📊 Chart generated from edited SQL');
+        }
+      }
+      
+    } catch (error) {
+      console.error("Failed to execute edited SQL:", error);
+      setLastError(error.message);
+      setError(`SQL execution failed: ${error.message}`);
     } finally {
       setSqlGenerating(false);
     }
@@ -338,7 +412,7 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
                 handleGenerateSQL();
               }
             }}
-            placeholder="Example: Show users by plan tier"
+            placeholder="Use dimension and measure names from the catalog above for better results (e.g., 'Show unique_users by customer_type')"
             class="flex-1 p-3 rounded-lg border border-gata-green/30 bg-gata-dark/40 text-gata-cream placeholder-gata-cream/50 focus:border-gata-green focus:ring-2 focus:ring-gata-green/20 focus:outline-none"
             rows={2}
             disabled={sqlGenerating}
@@ -359,12 +433,40 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
         {generatedSQL && (
           <div class="space-y-3">
             <div>
-              <h4 class="font-semibold text-gata-cream mb-2">Generated SQL:</h4>
-              <pre class="bg-gata-dark text-gata-green p-4 rounded-lg text-sm overflow-x-auto font-mono border border-gata-green/30">{generatedSQL}</pre>
+              <h4 class="font-semibold text-gata-cream mb-2">Generated SQL (editable):</h4>
+              <textarea
+                value={editedSQL}
+                onChange={(e) => setEditedSQL(e.currentTarget.value)}
+                class="w-full bg-gata-dark text-gata-green p-4 rounded-lg text-sm font-mono border border-gata-green/30 focus:border-gata-green focus:ring-2 focus:ring-gata-green/20 focus:outline-none"
+                rows={6}
+              />
             </div>
+            {lastError && (
+              <div class="bg-red-900/30 border border-red-500/50 rounded-lg p-3 backdrop-blur-sm space-y-2">
+                <p class="text-red-300 text-sm">{lastError}</p>
+                <button
+                  onClick={onBack}
+                  class="text-sm text-red-300 hover:text-red-200 underline"
+                >
+                  ← Back to Overview Dashboard
+                </button>
+              </div>
+            )}
             {sqlExplanation && (
               <div class="bg-gata-green/10 border border-gata-green/30 rounded-lg p-3 backdrop-blur-sm">
                 <p class="text-gata-cream/90 text-sm">{sqlExplanation}</p>
+              </div>
+            )}
+            {kpiResult && (
+              <div>
+                <h4 class="font-semibold text-gata-cream mb-3">📊 Result:</h4>
+                <KPICard 
+                  title={kpiResult.title}
+                  value={kpiResult.value}
+                  format="number"
+                  decimals={0}
+                  loading={false}
+                />
               </div>
             )}
             {generatedChart && (
@@ -375,19 +477,33 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
             )}
             <div class="flex gap-3">
               <button
-                onClick={() => querySpec && onExecuteQuery(querySpec)}
-                class="px-6 py-2 bg-gata-green text-gata-dark rounded-lg font-medium hover:bg-[#a0d147]"
+                onClick={handleExecuteEditedSQL}
+                disabled={!editedSQL.trim() || sqlGenerating}
+                class={`px-6 py-2 rounded-lg font-medium ${
+                  editedSQL.trim() && !sqlGenerating
+                    ? "bg-gata-green text-gata-dark hover:bg-[#a0d147]"
+                    : "bg-gata-dark/40 text-gata-cream/40 cursor-not-allowed border border-gata-green/20"
+                }`}
               >
-                Execute & Visualize →
+                {sqlGenerating ? "Executing..." : "Execute SQL"}
+              </button>
+              <button
+                onClick={handleGenerateSQL}
+                disabled={!promptInput.trim() || sqlGenerating}
+                class="px-6 py-2 bg-gata-dark/60 hover:bg-gata-dark/80 border border-gata-green/30 rounded-lg font-medium text-gata-cream"
+              >
+                🔄 Try Again
               </button>
               <button
                 onClick={() => {
                   setGeneratedSQL("");
+                  setEditedSQL("");
                   setSqlExplanation("");
-                  setQuerySpec(null);
                   setGeneratedChart(null);
+                  setKpiResult(null);
+                  setLastError(null);
                 }}
-                class="px-6 py-2 bg-gata-dark/60 text-gata-cream border border-gata-green/30 rounded-lg font-medium hover:bg-gata-dark/80"
+                class="px-6 py-2 bg-gata-dark/60 hover:bg-gata-dark/80 border border-gata-green/30 rounded-lg font-medium text-gata-cream"
               >
                 Clear
               </button>

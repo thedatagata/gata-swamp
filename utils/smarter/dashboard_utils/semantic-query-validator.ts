@@ -74,8 +74,22 @@ export class SemanticQueryValidator {
     const errors: ValidationResult['errors'] = [];
     const warnings: string[] = [];
 
+    // Check for invalid DuckDB functions
+    const invalidFunctions = this.checkDuckDBFunctions(sql);
+    if (invalidFunctions.length > 0) {
+      invalidFunctions.forEach(func => {
+        errors.push({
+          type: 'unknown_column',
+          column: func.invalid,
+          message: `Invalid DuckDB function: ${func.invalid}()`,
+          correction: `Use ${func.correction} instead`
+        });
+      });
+    }
+
     // Extract columns from SELECT
     const selectedColumns = this.extractSelectedColumns(sql);
+    const selectAliases = new Set(selectedColumns.map(c => c.alias).filter(Boolean));
     
     // Extract GROUP BY columns (dimensions)
     const groupByColumns = this.extractGroupByColumns(sql);
@@ -88,8 +102,15 @@ export class SemanticQueryValidator {
       }
     });
 
-    // Validate GROUP BY columns
+    // Validate GROUP BY columns (allow SELECT aliases - valid in DuckDB)
     groupByColumns.forEach(col => {
+      const cleanCol = col.replace(/"/g, '').trim();
+      
+      // If it's a SELECT alias, it's valid
+      if (selectAliases.has(cleanCol)) {
+        return;
+      }
+      
       const validation = this.validateDimension(col);
       if (validation.error) {
         errors.push(validation.error);
@@ -117,6 +138,23 @@ export class SemanticQueryValidator {
       correctionPrompt,
       parsed
     };
+  }
+
+  /**
+   * Check for invalid DuckDB date/time functions
+   */
+  private checkDuckDBFunctions(sql: string): Array<{invalid: string, correction: string}> {
+    const invalid: Array<{invalid: string, correction: string}> = [];
+    
+    // Only check for common function name errors, not syntax
+    if (/\bCURDATE\s*\(/i.test(sql)) {
+      invalid.push({ invalid: 'CURDATE', correction: 'CURRENT_DATE' });
+    }
+    if (/\bNOW\s*\(/i.test(sql)) {
+      invalid.push({ invalid: 'NOW', correction: 'CURRENT_TIMESTAMP' });
+    }
+    
+    return invalid;
   }
 
   /**
@@ -165,7 +203,7 @@ export class SemanticQueryValidator {
   }
 
   /**
-   * Validate a single column (could be dimension or measure)
+   * Validate column - check if field names used are valid
    */
   private validateColumn(col: {
     raw: string;
@@ -174,171 +212,108 @@ export class SemanticQueryValidator {
   }): { error?: ValidationResult['errors'][0] } {
     const expr = col.expression;
 
-    // Check if it's an aggregation
-    const aggMatch = expr.match(/^(SUM|AVG|COUNT|MAX|MIN|COUNT_DISTINCT)\s*\((.+)\)$/i);
-    
+    // Allow CASE statements (they're transformations)
+    if (expr.toUpperCase().includes('CASE')) {
+      // Extract field names from CASE and validate them
+      const fieldNames = this.extractFieldNames(expr);
+      const invalidFields = fieldNames.filter(f => !this.metadata.fields[f]);
+      
+      if (invalidFields.length > 0) {
+        return { error: {
+          type: 'unknown_column',
+          column: invalidFields[0],
+          message: `Unknown field "${invalidFields[0]}" in CASE statement`,
+          correction: `Available fields: ${Object.keys(this.metadata.fields).join(', ')}`
+        }};
+      }
+      return {};
+    }
+
+    // Check aggregations
+    const aggMatch = expr.match(/^(SUM|AVG|COUNT|MAX|MIN)\s*\((.+)\)$/i);
     if (aggMatch) {
-      const aggType = aggMatch[1].toLowerCase();
-      const innerExpr = aggMatch[2].trim();
+      const innerExpr = aggMatch[2].trim().replace(/DISTINCT\s+/i, '').trim();
       
-      // Check if alias is used as column reference
-      if (!col.alias) {
-        return { error: {
-          type: 'missing_aggregation',
-          column: col.raw,
-          message: 'Aggregation should have an alias',
-          correction: `Add AS alias_name to: ${col.raw}`
-        }};
-      }
-
-      // Check if the inner expression is a valid source field
-      const baseColumn = innerExpr.replace(/DISTINCT\s+/i, '').trim();
-      
-      if (!this.metadata.fields[baseColumn]) {
-        // Check if it's an alias
-        const aliasInfo = findMeasureByAlias(baseColumn, this.table);
-        if (aliasInfo) {
-          return { error: {
-            type: 'alias_as_column',
-            column: baseColumn,
-            message: `Alias "${baseColumn}" used as column reference in aggregation`,
-            correction: aliasInfo.type === 'formula' 
-              ? `Use: (${aliasInfo.formulaSQL}) AS ${col.alias}`
-              : `Use: ${aliasInfo.aggregationType?.toUpperCase()}(${aliasInfo.sourceColumn}) AS ${col.alias}`,
-            fieldMetadata: {
-              sourceColumn: aliasInfo.sourceColumn,
-              type: aliasInfo.type,
-              description: aliasInfo.description
-            }
-          }};
-        }
-
+      // Validate the base field
+      if (!this.metadata.fields[innerExpr]) {
         return { error: {
           type: 'unknown_column',
-          column: baseColumn,
-          message: `Unknown column "${baseColumn}" in aggregation`,
-          correction: `Available fields: ${Object.keys(this.metadata.fields).slice(0, 10).join(', ')}...`
+          column: innerExpr,
+          message: `Unknown field "${innerExpr}" in aggregation`,
+          correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 10).join(', ')}`
         }};
       }
+      return {};
+    }
 
-      // Validate aggregation type matches metadata
-      if (col.alias) {
-        const measureInfo = findMeasureByAlias(col.alias, this.table);
-        if (measureInfo && measureInfo.type === 'aggregation') {
-          const expectedAgg = measureInfo.aggregationType;
-          if (expectedAgg !== aggType && 
-              !(expectedAgg === 'count_distinct' && aggType === 'count' && innerExpr.includes('DISTINCT'))) {
-            return { error: {
-              type: 'wrong_aggregation',
-              column: col.alias,
-              message: `Wrong aggregation type: expected ${expectedAgg}, got ${aggType}`,
-              correction: `Use: ${expectedAgg.toUpperCase()}(${measureInfo.sourceColumn}) AS ${col.alias}`,
-              fieldMetadata: {
-                sourceColumn: measureInfo.sourceColumn,
-                expectedAggregation: expectedAgg,
-                description: measureInfo.description
-              }
-            }};
-          }
-        }
-      }
-    } else {
-      // Non-aggregated column - must be a dimension or formula
-      const columnName = expr.replace(/.*\./, '').trim();
-      
-      // Check if it's a field
-      if (!this.metadata.fields[columnName]) {
-        // Check if it's an alias
-        const aliasInfo = findDimensionByAlias(columnName, this.table) || 
-                         findMeasureByAlias(columnName, this.table);
-        
-        if (aliasInfo) {
-          if ('transformation' in aliasInfo && aliasInfo.transformation) {
-            return { error: {
-              type: 'alias_as_column',
-              column: columnName,
-              message: `Alias "${columnName}" used as column reference`,
-              correction: `Use: (${aliasInfo.transformation}) AS ${col.alias || columnName}`,
-              fieldMetadata: {
-                sourceColumn: aliasInfo.sourceColumn,
-                transformation: aliasInfo.transformation,
-                description: aliasInfo.description
-              }
-            }};
-          } else if ('formulaSQL' in aliasInfo && aliasInfo.formulaSQL) {
-            return { error: {
-              type: 'alias_as_column',
-              column: columnName,
-              message: `Formula alias "${columnName}" used as column reference`,
-              correction: `Use: (${aliasInfo.formulaSQL}) AS ${col.alias || columnName}`,
-              fieldMetadata: {
-                sourceColumn: 'sourceColumn' in aliasInfo ? aliasInfo.sourceColumn : null,
-                formula: aliasInfo.formulaSQL,
-                description: aliasInfo.description
-              }
-            }};
-          } else {
-            return { error: {
-              type: 'alias_as_column',
-              column: columnName,
-              message: `Alias "${columnName}" used as column reference`,
-              correction: `Use source field: ${'sourceColumn' in aliasInfo ? aliasInfo.sourceColumn : columnName}`,
-              fieldMetadata: {
-                sourceColumn: 'sourceColumn' in aliasInfo ? aliasInfo.sourceColumn : null,
-                description: aliasInfo.description
-              }
-            }};
-          }
-        }
-
-        // Check for CASE statements (formulas)
-        if (expr.toUpperCase().includes('CASE')) {
-          // Allow CASE statements - these are transformations/formulas
-          return {};
-        }
-
-        return { error: {
-          type: 'unknown_column',
-          column: columnName,
-          message: `Unknown column "${columnName}"`,
-          correction: `Available fields: ${Object.keys(this.metadata.fields).slice(0, 10).join(', ')}...`
-        }};
-      }
+    // Simple field reference
+    const fieldName = expr.trim();
+    if (!this.metadata.fields[fieldName] && !expr.includes('(')) {
+      return { error: {
+        type: 'unknown_column',
+        column: fieldName,
+        message: `Unknown field "${fieldName}"`,
+        correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 10).join(', ')}`
+      }};
     }
 
     return {};
   }
 
   /**
+   * Extract field names from expression
+   */
+  private extractFieldNames(expr: string): string[] {
+    const fields: string[] = [];
+    const knownFields = Object.keys(this.metadata.fields);
+    
+    // Remove function calls and operators to avoid false matches
+    let cleanExpr = expr
+      .replace(/INTERVAL\s+'[^']+'/gi, '') // Remove INTERVAL literals
+      .replace(/DATE_SUB\s*\([^)]*\)/gi, '') // Remove DATE_SUB calls
+      .replace(/DATE_DIFF\s*\([^)]*\)/gi, '') // Remove DATE_DIFF calls
+      .replace(/CURRENT_DATE/gi, '') // Remove CURRENT_DATE
+      .replace(/CURRENT_TIMESTAMP/gi, ''); // Remove CURRENT_TIMESTAMP
+    
+    // Look for each known field name
+    knownFields.forEach(field => {
+      const regex = new RegExp(`\\b${field}\\b`, 'gi');
+      if (regex.test(cleanExpr)) {
+        fields.push(field);
+      }
+    });
+    
+    return fields;
+  }
+
+  /**
    * Validate dimension in GROUP BY
    */
   private validateDimension(column: string): { error?: ValidationResult['errors'][0] } {
-    const columnName = column.replace(/.*\./, '').trim();
-
-    if (!this.metadata.fields[columnName]) {
-      const aliasInfo = findDimensionByAlias(columnName, this.table);
+    // Allow CASE statements
+    if (column.toUpperCase().includes('CASE')) {
+      const fieldNames = this.extractFieldNames(column);
+      const invalidFields = fieldNames.filter(f => !this.metadata.fields[f]);
       
-      if (aliasInfo) {
+      if (invalidFields.length > 0) {
         return { error: {
-          type: 'alias_as_column',
-          column: columnName,
-          message: `Alias "${columnName}" used in GROUP BY`,
-          correction: aliasInfo.transformation 
-            ? `Use: (${aliasInfo.transformation})` 
-            : `Use source field: ${aliasInfo.sourceColumn}`,
-          fieldMetadata: {
-            sourceColumn: aliasInfo.sourceColumn,
-            transformation: aliasInfo.transformation,
-            description: aliasInfo.description
-          }
+          type: 'unknown_column',
+          column: invalidFields[0],
+          message: `Unknown field "${invalidFields[0]}" in GROUP BY CASE`,
+          correction: `Use valid field names`
         }};
       }
+      return {};
+    }
 
+    // Simple field reference
+    const fieldName = column.trim();
+    if (!this.metadata.fields[fieldName]) {
       return { error: {
         type: 'unknown_column',
-        column: columnName,
-        message: `Unknown column "${columnName}" in GROUP BY`,
-        correction: `Available dimensions: ${Object.keys(this.metadata.dimensions).slice(0, 10).join(', ')}...`
+        column: fieldName,
+        message: `Unknown field "${fieldName}" in GROUP BY`,
+        correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 10).join(', ')}`
       }};
     }
 
@@ -406,48 +381,67 @@ export class SemanticQueryValidator {
    * Generate correction prompt for LLM
    */
   private generateCorrectionPrompt(sql: string, errors: ValidationResult['errors']): string {
-    let prompt = `🚨 SQL VALIDATION ERRORS\n\n`;
-    prompt += `Your SQL query has ${errors.length} error(s):\n\n`;
-
+    const uniqueErrorTypes = new Set(errors.map(e => e.type));
+    
+    let prompt = `🚨 SQL ERRORS (${errors.length})\n\n`;
+    
     errors.forEach((err, idx) => {
-      prompt += `${idx + 1}. ${err.type.toUpperCase()}: ${err.message}\n`;
-      prompt += `   Column: ${err.column}\n`;
-      prompt += `   Fix: ${err.correction}\n`;
+      prompt += `${idx + 1}. ${err.message}\n`;
+      prompt += `   Fix: ${err.correction}\n\n`;
+    });
+
+    // Only show relevant metadata based on error types
+    const showDimensions = uniqueErrorTypes.has('alias_as_column') || errors.some(e => e.fieldMetadata?.transformation);
+    const showMeasures = uniqueErrorTypes.has('wrong_aggregation') || uniqueErrorTypes.has('missing_aggregation');
+    
+    if (showDimensions || showMeasures) {
+      prompt += `📋 RELEVANT MAPPINGS:\n\n`;
       
-      if (err.fieldMetadata) {
-        prompt += `   Metadata:\n`;
-        Object.entries(err.fieldMetadata).forEach(([key, val]) => {
-          if (val) {
-            prompt += `     ${key}: ${val}\n`;
+      // Show only the fields mentioned in errors
+      const errorColumns = new Set(errors.map(e => e.column));
+      
+      if (showDimensions) {
+        const relevantDims = Object.entries(this.metadata.dimensions)
+          .filter(([source, dim]) => errorColumns.has(dim.alias_name) || errorColumns.has(source))
+          .slice(0, 5);
+        
+        if (relevantDims.length > 0) {
+          prompt += `Dimensions:\n`;
+          relevantDims.forEach(([source, dim]) => {
+            if (dim.transformation) {
+              prompt += `  "${dim.alias_name}" → (${dim.transformation})\n`;
+            } else {
+              prompt += `  "${dim.alias_name}" → ${source}\n`;
+            }
+          });
+          prompt += `\n`;
+        }
+      }
+      
+      if (showMeasures) {
+        const relevantMeasures: Array<[string, string, string]> = [];
+        Object.entries(this.metadata.measures).forEach(([source, measure]) => {
+          if (measure.aggregations) {
+            measure.aggregations.forEach((agg: any) => {
+              const aggType = Object.keys(agg)[0];
+              const aggConfig = agg[aggType];
+              if (errorColumns.has(aggConfig.alias) || errorColumns.has(source)) {
+                relevantMeasures.push([aggConfig.alias, aggType.toUpperCase(), source]);
+              }
+            });
           }
         });
+        
+        if (relevantMeasures.length > 0) {
+          prompt += `Measures:\n`;
+          relevantMeasures.slice(0, 5).forEach(([alias, agg, source]) => {
+            prompt += `  "${alias}" → ${agg}(${source})\n`;
+          });
+        }
       }
-      prompt += `\n`;
-    });
+    }
 
-    prompt += `📋 AVAILABLE FIELDS IN ${this.metadata.table}:\n\n`;
-    
-    prompt += `DIMENSIONS (use source name, not alias):\n`;
-    Object.entries(this.metadata.dimensions).slice(0, 10).forEach(([source, dim]) => {
-      prompt += `  • ${source} → "${dim.alias_name}"`;
-      if (dim.transformation) {
-        prompt += ` [transformed]`;
-      }
-      prompt += `\n`;
-    });
-
-    prompt += `\nMEASURES (use aggregation on source field):\n`;
-    Object.entries(this.metadata.measures).slice(0, 10).forEach(([source, measure]) => {
-      if (measure.aggregations) {
-        measure.aggregations.forEach((agg: any) => {
-          const aggType = Object.keys(agg)[0];
-          const aggConfig = agg[aggType];
-          prompt += `  • ${aggType.toUpperCase()}(${source}) → "${aggConfig.alias}"\n`;
-        });
-      }
-    });
-
-    prompt += `\n⚠️  CRITICAL: Use source column names (not aliases) in your SQL!\n`;
+    prompt += `\n⚠️ CRITICAL: Use source column names in SQL, return with AS for aliases!\n`;
     prompt += `Table: ${this.metadata.table}\n`;
 
     return prompt;

@@ -121,7 +121,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "Total Users",
     dimensions: [],
-    measures: ["user_count"],
+    measures: ["unique_users"],
     filters: null,
     chartType: "kpi"
   },
@@ -157,7 +157,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "Users by Lifecycle Stage",
     dimensions: ["max_lifecycle_stage_name"],
-    measures: ["user_count", "total_lifetime_revenue"],
+    measures: ["unique_users", "total_lifetime_revenue"],
     filters: null,
     chartType: "bar"
   },
@@ -166,7 +166,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "Acquisition Source Performance",
     dimensions: ["first_touch_utm_source"],
-    measures: ["user_count", "total_activated_users", "total_paying_customers"],
+    measures: ["unique_users", "total_activated_users", "total_paying_customers"],
     filters: null,
     chartType: "bar"
   },
@@ -175,8 +175,8 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "Revenue by Plan Tier",
     dimensions: ["current_plan_tier"],
-    measures: ["user_count", "total_lifetime_revenue", "avg_revenue_per_user"],
-    filters: null,
+    measures: ["unique_users", "total_lifetime_revenue", "avg_revenue_per_user"],
+    filters: ["current_plan_tier IS NOT NULL", "current_plan_tier != ''", "LOWER(current_plan_tier) != 'no plan'"],
     chartType: "bar"
   },
   {
@@ -184,7 +184,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "User Engagement Cohorts",
     dimensions: ["active_status_30d"],
-    measures: ["user_count", "avg_events_30d", "avg_revenue_30d"],
+    measures: ["unique_users", "avg_events_30d", "avg_revenue_30d"],
     filters: null,
     chartType: "bar"
   },
@@ -193,7 +193,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "Customer Type Breakdown",
     dimensions: ["customer_type"],
-    measures: ["user_count", "total_lifetime_revenue", "avg_revenue_per_user"],
+    measures: ["unique_users", "total_lifetime_revenue", "avg_revenue_per_user"],
     filters: null,
     chartType: "bar"
   }

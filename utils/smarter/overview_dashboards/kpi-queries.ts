@@ -66,33 +66,33 @@ export async function getUsersKPIs(db: any) {
   const periodSplitSQL = `
     WITH periods AS (
       SELECT
-        -- Trial Users (measure: trial_user_count filtered by days_since_last_event)
+        -- Trial Users (measure: trial_user_count filtered by days_since_last_session)
         SUM(CASE 
-          WHEN max_lifecycle_stage_name = 'trial' AND days_since_last_event < 30
+          WHEN current_lifecycle_stage = 'trial' AND days_since_last_session < 30
           THEN 1 ELSE 0 
         END) as trial_users_last_30d,
         SUM(CASE 
-          WHEN max_lifecycle_stage_name = 'trial' AND days_since_last_event BETWEEN 30 AND 60
+          WHEN current_lifecycle_stage = 'trial' AND days_since_last_session BETWEEN 30 AND 60
           THEN 1 ELSE 0 
         END) as trial_users_previous_30d,
         
-        -- Onboarding Users (measure: onboarding_user_count filtered by days_since_last_event)
+        -- Onboarding Users (measure: onboarding_user_count filtered by days_since_last_session)
         SUM(CASE 
-          WHEN max_lifecycle_stage_name = 'activation' AND days_since_last_event < 30
+          WHEN current_lifecycle_stage = 'consideration' AND days_since_last_session < 30
           THEN 1 ELSE 0 
         END) as onboarding_users_last_30d,
         SUM(CASE 
-          WHEN max_lifecycle_stage_name = 'activation' AND days_since_last_event BETWEEN 30 AND 60
+          WHEN current_lifecycle_stage = 'consideration' AND days_since_last_session BETWEEN 30 AND 60
           THEN 1 ELSE 0 
         END) as onboarding_users_previous_30d,
         
-        -- Customer Users (measure: customer_user_count filtered by days_since_last_event)
+        -- Customer Users (measure: customer_user_count filtered by days_since_last_session)
         SUM(CASE 
-          WHEN max_lifecycle_stage_name = 'retention' AND days_since_last_event < 30
+          WHEN current_lifecycle_stage in ('activation','retention') AND days_since_last_session < 30
           THEN 1 ELSE 0 
         END) as customer_users_last_30d,
         SUM(CASE 
-          WHEN max_lifecycle_stage_name = 'retention' AND days_since_last_event BETWEEN 30 AND 60
+          WHEN current_lifecycle_stage in ('activation','retention')  AND days_since_last_session BETWEEN 30 AND 60
           THEN 1 ELSE 0 
         END) as customer_users_previous_30d
       FROM users_dim
