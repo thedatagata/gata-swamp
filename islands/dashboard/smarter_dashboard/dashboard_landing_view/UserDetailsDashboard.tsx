@@ -105,32 +105,34 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
         // Build column metadata from semantic layer
         const usersConfig = getSemanticMetadata("users");
         const semanticFields = [
-          ...Object.entries(usersConfig.dimensions).map(([key, config]: [string, any]) => ({
-            column_name: key,
-            type: 'DIMENSION',
-            description: config.transformation || config.column,
-            isNumeric: false,
-            isDate: config.column?.includes('date'),
-            isBoolean: false,
-            uniqueCount: null,
-            nullPercentage: null,
-            minValue: null,
-            maxValue: null,
-            meanValue: null
-          })),
-          ...Object.entries(usersConfig.measures).map(([key, config]: [string, any]) => ({
-            column_name: key,
-            type: 'MEASURE',
-            description: config.description,
-            isNumeric: true,
-            isDate: false,
-            isBoolean: false,
-            uniqueCount: null,
-            nullPercentage: null,
-            minValue: null,
-            maxValue: null,
-            meanValue: null
-          }))
+          ...Object.entries(usersConfig.dimensions).map(([key, config]: [string, any]) => {
+            const sourceField = usersConfig.fields[config.column] || usersConfig.fields[key];
+            const description = sourceField?.description || config.transformation || config.column || key;
+            return {
+              column_name: config.alias_name || key,
+              type: 'DIMENSION',
+              description: description,
+              isNumeric: false,
+              isDate: config.column?.includes('date'),
+              isBoolean: false
+            };
+          }),
+          ...Object.entries(usersConfig.measures).map(([key, config]: [string, any]) => {
+            const sourceField = usersConfig.fields[key];
+            let description = sourceField?.description || config.description || key;
+            if (config.formula && Object.keys(config.formula).length > 0) {
+              const formulaAlias = Object.keys(config.formula)[0];
+              description = config.formula[formulaAlias].description || description;
+            }
+            return {
+              column_name: key,
+              type: 'MEASURE',
+              description: description,
+              isNumeric: true,
+              isDate: false,
+              isBoolean: false
+            };
+          })
         ];
         setColumnsMetadata(semanticFields);
       } catch (err) {
@@ -302,23 +304,41 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
 
       {showCatalog && (
         <div class="bg-gata-dark/60 border border-gata-green/30 rounded-lg p-4 space-y-3 backdrop-blur-sm">
-          <h3 class="font-semibold text-gata-green">Users Data Catalog</h3>
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p class="font-medium text-gata-cream mb-1">Dimensions:</p>
-              <ul class="text-gata-cream/80 space-y-1">
-                {Object.entries(usersConfig.dimensions).map(([key, dim]: [string, any]) => (
-                  <li key={key}>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">{key}</code> - {dim.description}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p class="font-medium text-gata-cream mb-1">Key Measures:</p>
-              <ul class="text-gata-cream/80 space-y-1">
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">total_revenue</code> - Total lifetime value</li>
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">active_users_30d</code> - Active user count</li>
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">paying_customers</code> - Paying customers</li>
-              </ul>
+          <h3 class="font-semibold text-gata-green">Users Data Catalog - All Fields ({Object.keys(usersConfig.fields).length})</h3>
+          <div class="bg-gata-dark/40 rounded-lg overflow-hidden">
+            <div class="overflow-x-auto max-h-96">
+              <table class="min-w-full text-xs">
+                <thead class="bg-gata-green/20 border-b border-gata-green/30 sticky top-0">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-semibold text-gata-cream">Field Name</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gata-cream">Type</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gata-cream">Category</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gata-cream">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gata-green/20">
+                  {Object.entries(usersConfig.fields).map(([fieldName, fieldConfig]: [string, any]) => (
+                    <tr key={fieldName} class="hover:bg-gata-green/10">
+                      <td class="px-3 py-2 font-medium text-gata-cream">
+                        <code class="bg-gata-green/20 px-1 rounded text-gata-green">{fieldName}</code>
+                      </td>
+                      <td class="px-3 py-2 text-gata-cream/80">{fieldConfig.md_data_type}</td>
+                      <td class="px-3 py-2 text-gata-cream/80">
+                        <span class={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                          fieldConfig.data_type_category === 'identifier' ? 'bg-purple-900/40 text-purple-300' :
+                          fieldConfig.data_type_category === 'temporal' ? 'bg-blue-900/40 text-blue-300' :
+                          fieldConfig.data_type_category === 'categorical' ? 'bg-green-900/40 text-green-300' :
+                          fieldConfig.data_type_category === 'numerical' ? 'bg-yellow-900/40 text-yellow-300' :
+                          'bg-orange-900/40 text-orange-300'
+                        }`}>
+                          {fieldConfig.data_type_category}
+                        </span>
+                      </td>
+                      <td class="px-3 py-2 text-gata-cream/80">{fieldConfig.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

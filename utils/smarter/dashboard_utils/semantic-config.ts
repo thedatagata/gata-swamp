@@ -347,20 +347,32 @@ ${dimensionMappings.join('\n')}
 MEASURES (User says alias → You write SQL with aggregation):
 ${measureMappings.join('\n')}
 
-DUCKDB DATE SYNTAX:
-- Subtract time: date - INTERVAL '3 months' (NOT DATE_SUB with INTERVAL)
-- Add time: date + INTERVAL '1 day'
-- Date comparison: date < CURRENT_DATE - INTERVAL '6 months'
-- Examples:
-  WHERE first_session_date < CURRENT_DATE - INTERVAL '6 months'
-  WHERE last_event_date > CURRENT_DATE - INTERVAL '30 days'
+DUCKDB SYNTAX RULES:
+1. Date arithmetic: date - INTERVAL '3 months' (NOT DATE_SUB with INTERVAL)
+2. Time intervals: '1 day', '7 days', '3 months', '1 year'
+3. Current date: CURRENT_DATE (for DATE columns)
+4. Current timestamp: CURRENT_TIMESTAMP (for TIMESTAMP columns)
+5. CASE statements: CASE WHEN condition THEN value ELSE other END
+6. Aggregations with conditions: SUM(CASE WHEN x = 1 THEN 1 ELSE 0 END)
+
+${metadata.table === 'session_facts' ? `SESSION-SPECIFIC EXAMPLES:
+- Last 30 days: WHERE session_date >= CURRENT_DATE - INTERVAL '30 days'
+- Specific month: WHERE session_date BETWEEN '2024-01-01' AND '2024-01-31'
+- Recent sessions: WHERE session_start_time > CURRENT_TIMESTAMP - INTERVAL '7 days'
+- Count events by stage: SUM(CASE WHEN max_lifecycle_stage = 'trial' THEN 1 ELSE 0 END)
+- Revenue range: WHERE session_revenue BETWEEN 10 AND 100` : `USER-SPECIFIC EXAMPLES:
+- Users in last 6 months: WHERE first_session_date >= CURRENT_DATE - INTERVAL '6 months'
+- Active recently: WHERE last_event_timestamp > CURRENT_DATE - INTERVAL '30 days'
+- Trial users: WHERE trial_status = 'active' OR trial_status = 'expired'
+- Sessions range: WHERE total_sessions BETWEEN 5 AND 20`}
 
 CRITICAL SQL RULES:
 1. User references = alias names (right side of arrow)
 2. Your SQL = source columns/transformations (left side of arrow)
-3. Always include FROM ${metadata.table}
-4. Use AS to return alias names in results
-5. Output ONLY valid SQL - no markdown, no explanations, no truncation
+3. Always use FROM ${metadata.table}
+4. Return alias names with AS: SELECT source_col AS alias_name
+5. Uint8Array fields (0/1) in WHERE need explicit comparison: WHERE field = 1, NOT WHERE field
+6. Output ONLY valid SQL - no markdown, no explanations, no truncation
 
 CORRECT PATTERN:
 User: "avg_sessions_per_user by customer_type"

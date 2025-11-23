@@ -59,11 +59,14 @@ export default function SessionDetailsDashboard({
   const [error, setError] = useState<string | null>(null);
   const [promptInput, setPromptInput] = useState("");
   const [generatedSQL, setGeneratedSQL] = useState("");
+  const [editedSQL, setEditedSQL] = useState("");
   const [sqlExplanation, setSqlExplanation] = useState("");
   const [querySpec, setQuerySpec] = useState<any>(null);
   const [sqlGenerating, setSqlGenerating] = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
-  const [generatedChart, setGeneratedChart] = useState<any>(null);  // For LLM-generated charts
+  const [generatedChart, setGeneratedChart] = useState<any>(null);
+  const [kpiResult, setKpiResult] = useState<{value: number, title: string} | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -144,32 +147,34 @@ export default function SessionDetailsDashboard({
         // Build column metadata from semantic layer instead of profiled data
         const sessionsConfig = getSemanticMetadata("sessions");
         const semanticFields = [
-          ...Object.entries(sessionsConfig.dimensions).map(([key, config]: [string, any]) => ({
-            column_name: key,
-            type: 'DIMENSION',
-            description: config.transformation || config.column,
-            isNumeric: false,
-            isDate: config.column?.includes('date'),
-            isBoolean: false,
-            uniqueCount: null,
-            nullPercentage: null,
-            minValue: null,
-            maxValue: null,
-            meanValue: null
-          })),
-          ...Object.entries(sessionsConfig.measures).map(([key, config]: [string, any]) => ({
-            column_name: key,
-            type: 'MEASURE',
-            description: config.description,
-            isNumeric: true,
-            isDate: false,
-            isBoolean: false,
-            uniqueCount: null,
-            nullPercentage: null,
-            minValue: null,
-            maxValue: null,
-            meanValue: null
-          }))
+          ...Object.entries(sessionsConfig.dimensions).map(([key, config]: [string, any]) => {
+            const sourceField = sessionsConfig.fields[config.column] || sessionsConfig.fields[key];
+            const description = sourceField?.description || config.transformation || config.column || key;
+            return {
+              column_name: config.alias_name || key,
+              type: 'DIMENSION',
+              description: description,
+              isNumeric: false,
+              isDate: config.column?.includes('date'),
+              isBoolean: false
+            };
+          }),
+          ...Object.entries(sessionsConfig.measures).map(([key, config]: [string, any]) => {
+            const sourceField = sessionsConfig.fields[key];
+            let description = sourceField?.description || config.description || key;
+            if (config.formula && Object.keys(config.formula).length > 0) {
+              const formulaAlias = Object.keys(config.formula)[0];
+              description = config.formula[formulaAlias].description || description;
+            }
+            return {
+              column_name: key,
+              type: 'MEASURE',
+              description: description,
+              isNumeric: true,
+              isDate: false,
+              isBoolean: false
+            };
+          })
         ];
         setColumnsMetadata(semanticFields);
       } catch (err) {
@@ -188,9 +193,10 @@ export default function SessionDetailsDashboard({
     setSqlGenerating(true);
     setError(null);
     setGeneratedChart(null);
+    setKpiResult(null);
+    setLastError(null);
     
     try {
-      // Execute query directly
       const { query, data, metrics } = await webllmEngine.generateQuery(promptInput, "sessions");
       
       console.log('✅ Query executed:', { 
@@ -201,10 +207,20 @@ export default function SessionDetailsDashboard({
       });
       
       setGeneratedSQL(query.sql);
+      setEditedSQL(query.sql);  // Sync edited SQL
       setSqlExplanation(query.explanation);
       
-      // Generate chart from data
-      if (data.length > 0) {
+      // Check if this is a KPI (single row, single measure, no dimensions)
+      const isKPI = data.length === 1 && query.measures.length === 1 && query.dimensions.length === 0;
+      
+      if (isKPI && data.length > 0) {
+        const measure = query.measures[0];
+        const measureKey = measure.alias || measure.sourceField;
+        setKpiResult({
+          value: data[0][measureKey],
+          title: measure.alias?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Result'
+        });
+      } else if (data.length > 0) {
         const chartConfig = generateDashboardChartConfig(
           {
             dimensions: query.dimensions,
@@ -223,7 +239,56 @@ export default function SessionDetailsDashboard({
       
     } catch (error) {
       console.error("Failed to execute query:", error);
+      setLastError(error.message);
       setError(`Query failed: ${error.message}`);
+    } finally {
+      setSqlGenerating(false);
+    }
+  };
+
+  const executeEditedSQL = async () => {
+    if (!editedSQL.trim()) return;
+    setSqlGenerating(true);
+    setLastError(null);
+    setGeneratedChart(null);
+    setKpiResult(null);
+    
+    try {
+      const result = await db.query(editedSQL);
+      const data = sanitizeQueryData(Array.from(result));
+      
+      // Parse the SQL to extract dimensions and measures
+      const parsed = webllmEngine.parseQueryForChart(editedSQL);
+      
+      // Check if this is a KPI (single row, single measure, no dimensions)
+      const isKPI = data.length === 1 && parsed.measures.length === 1 && parsed.dimensions.length === 0;
+      
+      if (isKPI && data.length > 0) {
+        const measure = parsed.measures[0];
+        const measureKey = measure.alias || measure.sourceField;
+        setKpiResult({
+          value: data[0][measureKey],
+          title: measure.alias?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Result'
+        });
+      } else if (data.length > 0) {
+        const chartConfig = generateDashboardChartConfig(
+          {
+            dimensions: parsed.dimensions,
+            measures: parsed.measures,
+            chartType: 'bar',
+            title: promptInput || 'Custom Query'
+          },
+          data
+        );
+        
+        if (chartConfig) {
+          setGeneratedChart(chartConfig);
+          console.log('📊 Chart generated from edited SQL:', chartConfig.type);
+        }
+      }
+    } catch (error) {
+      console.error("SQL execution failed:", error);
+      setLastError(error.message);
     } finally {
       setSqlGenerating(false);
     }
@@ -277,24 +342,41 @@ export default function SessionDetailsDashboard({
 
       {showCatalog && (
         <div class="bg-gata-dark/60 border border-gata-green/30 rounded-lg p-4 space-y-3 backdrop-blur-sm">
-          <h3 class="font-semibold text-gata-green">Sessions Data Catalog</h3>
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p class="font-medium text-gata-cream mb-1">Dimensions:</p>
-              <ul class="text-gata-cream/80 space-y-1">
-                {Object.entries(sessionsConfig.dimensions).map(([key, dim]: [string, any]) => (
-                  <li key={key}>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">{key}</code> - {dim.description}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p class="font-medium text-gata-cream mb-1">Key Measures:</p>
-              <ul class="text-gata-cream/80 space-y-1">
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">total_revenue</code> - Total revenue</li>
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">session_count</code> - Total sessions</li>
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">unique_visitors</code> - Unique visitors</li>
-                <li>• <code class="bg-gata-green/20 px-1 rounded text-gata-green">conversion_rate_last_30d</code> - Conversion rate</li>
-              </ul>
+          <h3 class="font-semibold text-gata-green">Sessions Data Catalog - All Fields ({Object.keys(sessionsConfig.fields).length})</h3>
+          <div class="bg-gata-dark/40 rounded-lg overflow-hidden">
+            <div class="overflow-x-auto max-h-96">
+              <table class="min-w-full text-xs">
+                <thead class="bg-gata-green/20 border-b border-gata-green/30 sticky top-0">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-semibold text-gata-cream">Field Name</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gata-cream">Type</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gata-cream">Category</th>
+                    <th class="px-3 py-2 text-left font-semibold text-gata-cream">Description</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gata-green/20">
+                  {Object.entries(sessionsConfig.fields).map(([fieldName, fieldConfig]: [string, any]) => (
+                    <tr key={fieldName} class="hover:bg-gata-green/10">
+                      <td class="px-3 py-2 font-medium text-gata-cream">
+                        <code class="bg-gata-green/20 px-1 rounded text-gata-green">{fieldName}</code>
+                      </td>
+                      <td class="px-3 py-2 text-gata-cream/80">{fieldConfig.md_data_type}</td>
+                      <td class="px-3 py-2 text-gata-cream/80">
+                        <span class={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                          fieldConfig.data_type_category === 'identifier' ? 'bg-purple-900/40 text-purple-300' :
+                          fieldConfig.data_type_category === 'temporal' ? 'bg-blue-900/40 text-blue-300' :
+                          fieldConfig.data_type_category === 'categorical' ? 'bg-green-900/40 text-green-300' :
+                          fieldConfig.data_type_category === 'numerical' ? 'bg-yellow-900/40 text-yellow-300' :
+                          'bg-orange-900/40 text-orange-300'
+                        }`}>
+                          {fieldConfig.data_type_category}
+                        </span>
+                      </td>
+                      <td class="px-3 py-2 text-gata-cream/80">{fieldConfig.description}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -414,12 +496,40 @@ export default function SessionDetailsDashboard({
         {generatedSQL && (
           <div class="space-y-3">
             <div>
-              <h4 class="font-semibold text-gata-cream mb-2">Generated SQL:</h4>
-              <pre class="bg-gata-dark text-gata-green p-4 rounded-lg text-sm overflow-x-auto font-mono border border-gata-green/30">{generatedSQL}</pre>
+              <h4 class="font-semibold text-gata-cream mb-2">Generated SQL (editable):</h4>
+              <textarea
+                value={editedSQL}
+                onChange={(e) => setEditedSQL(e.currentTarget.value)}
+                class="w-full bg-gata-dark text-gata-green p-4 rounded-lg text-sm font-mono border border-gata-green/30 focus:border-gata-green focus:ring-2 focus:ring-gata-green/20 focus:outline-none min-h-[120px]"
+              />
             </div>
             {sqlExplanation && (
               <div class="bg-gata-green/10 border border-gata-green/30 rounded-lg p-3 backdrop-blur-sm">
                 <p class="text-gata-cream/90 text-sm">{sqlExplanation}</p>
+              </div>
+            )}
+            {lastError && (
+              <div class="bg-red-900/30 border border-red-500/50 rounded-lg p-3 backdrop-blur-sm space-y-2">
+                <p class="text-red-300 text-sm">{lastError}</p>
+                <button
+                  onClick={onBack}
+                  class="text-sm text-red-300 hover:text-red-200 underline"
+                >
+                  ← Back to Overview Dashboard
+                </button>
+              </div>
+            )}
+            {kpiResult && (
+              <div>
+                <h4 class="font-semibold text-gata-cream mb-3">📊 Result:</h4>
+                <KPICard 
+                  title={kpiResult.title}
+                  value={kpiResult.value}
+                  format={kpiResult.title.toLowerCase().includes('rate') ? 'percentage' : 
+                         kpiResult.title.toLowerCase().includes('revenue') ? 'currency' : 'number'}
+                  decimals={kpiResult.title.toLowerCase().includes('rate') ? 1 : 0}
+                  loading={false}
+                />
               </div>
             )}
             {generatedChart && (
@@ -430,18 +540,33 @@ export default function SessionDetailsDashboard({
             )}
             <div class="flex gap-3">
               <button
-                onClick={() => querySpec && onExecuteQuery(querySpec)}
-                class="px-6 py-2 bg-gata-green text-gata-dark rounded-lg font-medium hover:bg-[#a0d147]"
+                onClick={executeEditedSQL}
+                disabled={!editedSQL.trim() || sqlGenerating}
+                class={`px-6 py-2 rounded-lg font-medium ${
+                  editedSQL.trim() && !sqlGenerating
+                    ? "bg-gata-green text-gata-dark hover:bg-[#a0d147]"
+                    : "bg-gata-dark/40 text-gata-cream/40 cursor-not-allowed border border-gata-green/20"
+                }`}
               >
-                Execute & Visualize →
+                {sqlGenerating ? "Executing..." : "Execute SQL"}
+              </button>
+              <button
+                onClick={handleGenerateSQL}
+                disabled={!promptInput.trim() || sqlGenerating}
+                class="px-6 py-2 bg-gata-dark/60 hover:bg-gata-dark/80 border border-gata-green/30 rounded-lg font-medium text-gata-cream"
+              >
+                🔄 Try Again
               </button>
               <button
                 onClick={() => {
                   setGeneratedSQL("");
+                  setEditedSQL("");
                   setSqlExplanation("");
-                  setQuerySpec(null);
+                  setGeneratedChart(null);
+                  setKpiResult(null);
+                  setLastError(null);
                 }}
-                class="px-6 py-2 bg-gata-dark/60 text-gata-cream border border-gata-green/30 rounded-lg font-medium hover:bg-gata-dark/80"
+                class="px-6 py-2 bg-gata-dark/60 hover:bg-gata-dark/80 border border-gata-green/30 rounded-lg font-medium text-gata-cream"
               >
                 Clear
               </button>
