@@ -78,19 +78,31 @@ export default function SessionDetailsDashboard({
         const sessionsKPIRaw = await getSessionsKPIs(db);
         const sessionsKPIData = sanitizeQueryData([sessionsKPIRaw])[0];
         
-        // Build KPI data structure
+        // Build KPI data structure with period comparison
         const kpis: any = {
           new_vs_returning: {
             query: { title: "New vs Returning" },
-            data: [{ value: sessionsKPIData.new_vs_returning_30d }]
+            data: [{ 
+              value: sessionsKPIData.new_vs_returning_30d,
+              previousValue: sessionsKPIData.new_vs_returning_previous_30d,
+              changePercent: sessionsKPIData.new_vs_returning_rate
+            }]
           },
           paid_vs_organic: {
             query: { title: "Paid vs Organic" },
-            data: [{ value: sessionsKPIData.paid_vs_organic_30d }]
+            data: [{ 
+              value: sessionsKPIData.paid_vs_organic_30d,
+              previousValue: sessionsKPIData.paid_vs_organic_previous_30d,
+              changePercent: sessionsKPIData.paid_vs_organic_traffic_rate
+            }]
           },
           revenue: {
             query: { title: "Revenue" },
-            data: [{ value: sessionsKPIData.revenue_last_30d }]
+            data: [{ 
+              value: sessionsKPIData.revenue_last_30d,
+              previousValue: sessionsKPIData.revenue_previous_30d,
+              changePercent: sessionsKPIData.revenue_growth_rate
+            }]
           }
         };
         setKpiData(kpis);
@@ -296,18 +308,26 @@ export default function SessionDetailsDashboard({
 
   const getKPIValue = (id: string) => {
     const kpi = kpiData[id];
-    if (!kpi?.data?.[0]) return 0;
-    const value = kpi.data[0].value;
-    if (typeof value === 'bigint') return Number(value);
-    if (value instanceof Uint8Array) return uint8ArrayToNumber(value);
-    return value || 0;
+    if (!kpi?.data?.[0]) return { value: 0, previousValue: undefined, changePercent: undefined };
+    const data = kpi.data[0];
+    const value = typeof data.value === 'bigint' ? Number(data.value) :
+                  data.value instanceof Uint8Array ? uint8ArrayToNumber(data.value) : data.value || 0;
+    const previousValue = data.previousValue !== undefined && data.previousValue !== null ?
+                          (typeof data.previousValue === 'bigint' ? Number(data.previousValue) :
+                           data.previousValue instanceof Uint8Array ? uint8ArrayToNumber(data.previousValue) : data.previousValue) :
+                          undefined;
+    const changePercent = data.changePercent !== undefined && data.changePercent !== null ?
+                          (typeof data.changePercent === 'bigint' ? Number(data.changePercent) :
+                           data.changePercent instanceof Uint8Array ? uint8ArrayToNumber(data.changePercent) : data.changePercent) :
+                          undefined;
+    return { value, previousValue, changePercent };
   };
 
   const sessionsConfig = getSemanticMetadata("sessions");
   
-  const newVsReturningCurrent = getKPIValue('new_vs_returning');
-  const paidVsOrganicCurrent = getKPIValue('paid_vs_organic');
-  const revenueCurrent = getKPIValue('revenue');
+  const newVsReturning = getKPIValue('new_vs_returning');
+  const paidVsOrganic = getKPIValue('paid_vs_organic');
+  const revenue = getKPIValue('revenue');
   
 
   if (error) {
@@ -385,21 +405,27 @@ export default function SessionDetailsDashboard({
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KPICard 
           title="New vs Returning" 
-          value={newVsReturningCurrent} 
+          value={newVsReturning.value}
+          previousValue={newVsReturning.previousValue}
+          changePercent={newVsReturning.changePercent}
           format="percentage" 
           decimals={1}
           loading={loading} 
         />
         <KPICard 
           title="Paid vs Organic" 
-          value={paidVsOrganicCurrent} 
+          value={paidVsOrganic.value}
+          previousValue={paidVsOrganic.previousValue}
+          changePercent={paidVsOrganic.changePercent}
           format="percentage" 
           decimals={1}
           loading={loading} 
         />
         <KPICard 
           title="Revenue" 
-          value={revenueCurrent} 
+          value={revenue.value}
+          previousValue={revenue.previousValue}
+          changePercent={revenue.changePercent}
           format="currency" 
           decimals={0}
           loading={loading} 

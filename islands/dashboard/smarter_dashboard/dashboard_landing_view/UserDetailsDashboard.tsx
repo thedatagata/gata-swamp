@@ -64,19 +64,31 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
         const usersKPIRaw = await getUsersKPIs(db);
         const usersKPIData = sanitizeQueryData([usersKPIRaw])[0];
         
-        // Build KPI data structure
+        // Build KPI data structure with period comparison
         const kpis: any = {
           trial_users: {
             query: { title: "Trial Users" },
-            data: [{ value: usersKPIData.trial_users_last_30d }]
+            data: [{ 
+              value: usersKPIData.trial_users_last_30d,
+              previousValue: usersKPIData.trial_users_previous_30d,
+              changePercent: usersKPIData.trial_users_growth_rate
+            }]
           },
           onboarding_users: {
             query: { title: "Onboarding Users" },
-            data: [{ value: usersKPIData.onboarding_users_last_30d }]
+            data: [{ 
+              value: usersKPIData.onboarding_users_last_30d,
+              previousValue: usersKPIData.onboarding_users_previous_30d,
+              changePercent: usersKPIData.onboarding_users_growth_rate
+            }]
           },
           customer_users: {
             query: { title: "Active Customers" },
-            data: [{ value: usersKPIData.customer_users_last_30d }]
+            data: [{ 
+              value: usersKPIData.customer_users_last_30d,
+              previousValue: usersKPIData.customer_users_previous_30d,
+              changePercent: usersKPIData.customer_users_growth_rate
+            }]
           }
         };
         setKpiData(kpis);
@@ -263,17 +275,25 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
 
   const getKPIValue = (id: string) => {
     const kpi = kpiData[id];
-    if (!kpi?.data?.[0]) return 0;
-    const value = kpi.data[0].value;
-    if (typeof value === 'bigint') return Number(value);
-    if (value instanceof Uint8Array) return uint8ArrayToNumber(value);
-    return value || 0;
+    if (!kpi?.data?.[0]) return { value: 0, previousValue: undefined, changePercent: undefined };
+    const data = kpi.data[0];
+    const value = typeof data.value === 'bigint' ? Number(data.value) :
+                  data.value instanceof Uint8Array ? uint8ArrayToNumber(data.value) : data.value || 0;
+    const previousValue = data.previousValue !== undefined && data.previousValue !== null ?
+                          (typeof data.previousValue === 'bigint' ? Number(data.previousValue) :
+                           data.previousValue instanceof Uint8Array ? uint8ArrayToNumber(data.previousValue) : data.previousValue) :
+                          undefined;
+    const changePercent = data.changePercent !== undefined && data.changePercent !== null ?
+                          (typeof data.changePercent === 'bigint' ? Number(data.changePercent) :
+                           data.changePercent instanceof Uint8Array ? uint8ArrayToNumber(data.changePercent) : data.changePercent) :
+                          undefined;
+    return { value, previousValue, changePercent };
   };
 
   const usersConfig = getSemanticMetadata("users");
-  const trialUsersCurrent = getKPIValue('trial_users');
-  const onboardingUsersCurrent = getKPIValue('onboarding_users');
-  const customerUsersCurrent = getKPIValue('customer_users');
+  const trialUsers = getKPIValue('trial_users');
+  const onboardingUsers = getKPIValue('onboarding_users');
+  const customerUsers = getKPIValue('customer_users');
 
   if (error) {
     return (
