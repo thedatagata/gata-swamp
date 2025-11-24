@@ -10,7 +10,6 @@ services:
       - key: LAUNCHDARKLY_SDK_KEY
         sync: false
       - key: LAUNCHDARKLY_CLIENT_ID
-        value: 6920a5194ff9c6098d1b6ca8
         sync: false
       - key: MOTHERDUCK_TOKEN
         sync: false
