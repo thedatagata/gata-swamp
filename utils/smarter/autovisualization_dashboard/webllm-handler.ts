@@ -156,8 +156,12 @@ Fix the errors above while answering the user's request.`;
           console.warn(`⚠️ [WebLLM] Validation failed:`, validation.errors.map(e => e.message));
           
           if (metrics.attemptCount >= 3) {
-            throw new Error(`SQL validation failed after 3 attempts. Errors: ${validation.errors.map(e => e.message).join('; ')}`);
-          }
+          // Throw a specific error that indicates an upgrade is available
+          const upgradeError = new Error(`SQL validation failed after 3 attempts. Errors: ${validation.errors.map(e => e.message).join('; ')}`);
+          (upgradeError as any).code = 'MODEL_UPGRADE_REQUIRED';
+          (upgradeError as any).modelTier = this.model_tier;
+          throw upgradeError;
+        }
           continue;
         }
       }
@@ -204,12 +208,18 @@ Fix the errors above while answering the user's request.`;
         console.error(`❌ [WebLLM] Execution failed:`, (error as Error).message);
         
         if (metrics.attemptCount >= 3) {
-          throw new Error(`SQL execution failed after 3 attempts: ${(error as Error).message}`);
+          const upgradeError = new Error(`SQL execution failed after 3 attempts: ${(error as Error).message}`);
+          (upgradeError as any).code = 'MODEL_UPGRADE_REQUIRED';
+          (upgradeError as any).modelTier = this.model_tier;
+          throw upgradeError;
         }
       }
     }
 
-    throw new Error("Query generation failed");
+    const upgradeError = new Error("Query generation failed");
+    (upgradeError as any).code = 'MODEL_UPGRADE_REQUIRED';
+    (upgradeError as any).modelTier = this.model_tier;
+    throw upgradeError;
   }
 
   private async generateSQLFromPrompt(
