@@ -7,6 +7,8 @@ services:
     branch: master
     healthCheckPath: /health
     envVars:
+      - key: DENO_ENV
+        value: production
       - key: LAUNCHDARKLY_SDK_KEY
         sync: false
       - key: LAUNCHDARKLY_CLIENT_ID
