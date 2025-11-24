@@ -13,8 +13,8 @@ export const handler: Handlers = {
         );
       }
 
-      const sessionId = ctx.state.sessionId;
-      const kv = getKv();
+      const sessionId = ctx.state.sessionId as string;
+      const kv = await getKv();
       
       await kv.set(["user_plan", sessionId], {
         plan: plan as "base" | "premium",

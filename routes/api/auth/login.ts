@@ -1,0 +1,67 @@
+import { Handlers } from "$fresh/server.ts";
+import { getUser } from "../../../utils/models/user.ts";
+import { createSession } from "../../../utils/models/session.ts";
+import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+
+export const handler: Handlers = {
+  async POST(req) {
+    try {
+      const { username, password } = await req.json();
+
+      if (!username || !password) {
+        return new Response(JSON.stringify({ error: "Username and password required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // Get user
+      const user = await getUser(username);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Invalid credentials" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify password
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return new Response(JSON.stringify({ error: "Invalid credentials" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // Create session
+      const session = await createSession(username);
+
+      // Set cookie
+      const headers = new Headers({
+        "Content-Type": "application/json",
+        "Set-Cookie": `session_id=${session.sessionId}; Path=/; HttpOnly; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax`,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          user: {
+            username: user.username,
+            plan_tier: user.plan_tier,
+            ai_addon_unlocked: user.ai_addon_unlocked,
+          },
+        }),
+        { headers }
+      );
+    } catch (error) {
+      console.error("Login error:", error);
+      return new Response(
+        JSON.stringify({ error: "Login failed" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  },
+};

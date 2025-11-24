@@ -139,7 +139,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "Active Users (30d)",
     dimensions: [],
-    measures: ["total_active_30d"],
+    measures: ["active_users_30d"],
     filters: null,
     chartType: "kpi"
   },
@@ -156,7 +156,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     id: "lifecycle_distribution",
     table: "users",
     title: "Users by Lifecycle Stage",
-    dimensions: ["max_lifecycle_stage_name"],
+    dimensions: ["current_lifecycle_stage"],
     measures: ["unique_users", "total_lifetime_revenue"],
     filters: null,
     chartType: "bar"
@@ -165,7 +165,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     id: "acquisition_performance",
     table: "users",
     title: "Acquisition Source Performance",
-    dimensions: ["first_touch_utm_source"],
+    dimensions: ["first_traffic_source"],
     measures: ["unique_users", "total_activated_users", "total_paying_customers"],
     filters: null,
     chartType: "bar"
@@ -174,16 +174,16 @@ export const usersDashboardQueries: DashboardQuery[] = [
     id: "plan_distribution",
     table: "users",
     title: "Revenue by Plan Tier",
-    dimensions: ["current_plan_tier"],
+    dimensions: ["plan_tier"],
     measures: ["unique_users", "total_lifetime_revenue", "avg_revenue_per_user"],
-    filters: ["current_plan_tier IS NOT NULL", "current_plan_tier != ''", "LOWER(current_plan_tier) != 'no plan'"],
+    filters: ["current_plan_tier IS NOT NULL", "current_plan_tier != ''"],
     chartType: "bar"
   },
   {
     id: "engagement_cohorts",
     table: "users",
     title: "User Engagement Cohorts",
-    dimensions: ["active_status_30d"],
+    dimensions: ["recent_activity"],
     measures: ["unique_users", "avg_events_30d", "avg_revenue_30d"],
     filters: null,
     chartType: "bar"

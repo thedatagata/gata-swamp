@@ -20,7 +20,6 @@ interface SemanticMetadata {
     [key: string]: {
       alias_name: string;
       transformation: string | null;
-      sort?: string;
     };
   };
   measures: {

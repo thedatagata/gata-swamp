@@ -8,6 +8,16 @@ import { getLDClient } from "../../../../utils/launchdarkly/client.ts";
 import { trackView, trackInteraction, trackPerformance } from "../../../../utils/launchdarkly/events.ts";
 import UpgradeModal from "../../../../components/UpgradeModal.tsx";
 
+function getSessionId(): string {
+  if (typeof sessionStorage === "undefined") return "server-session";
+  let id = sessionStorage.getItem("sessionId");
+  if (!id) {
+    id = crypto.randomUUID();
+    sessionStorage.setItem("sessionId", id);
+  }
+  return id;
+}
+
 function uint8ArrayToNumber(arr: Uint8Array): number {
   const view = new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
   return Number(view.getBigUint64(0, true));
@@ -183,6 +193,19 @@ Keep it concise and actionable.`;
     }
   };
 
+  const handleUpgradeSuccess = () => {
+    // Update the hasAIAnalyst state to unlock the feature
+    setHasAIAnalyst(true);
+    
+    // Trigger AI analysis immediately with existing data
+    const sessData = sessionsKPI.sessions_kpi?.data?.[0];
+    const usersData = usersKPI.users_kpi?.data?.[0];
+    if (sessData && usersData && webllmEngine) {
+      console.log("🎉 AI Analyst unlocked! Generating insights...");
+      generateInsights(sessData, usersData);
+    }
+  };
+
   const getKPIValue = (kpiData: any, measure: string) => {
     const kpi = kpiData.sessions_kpi || kpiData.users_kpi;
     if (!kpi?.data?.[0]) return 0;
@@ -288,7 +311,10 @@ Keep it concise and actionable.`;
         <UpgradeModal 
           feature="ai_analyst_access"
           trigger="analysis_request"
+          upgradeType="feature"
+          sessionId={getSessionId()}
           onClose={() => setShowUpgradeModal(false)}
+          onSuccess={handleUpgradeSuccess}
         />
       )}
 

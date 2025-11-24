@@ -16,24 +16,32 @@ interface SliceObject {
 
 // Sequences always go to columns (for users: dates and lifecycle stages)
 const SEQUENCE_FIELDS = [
-  'max_lifecycle_stage'
+  'current_lifecycle_stage'
 ];
 
 // Fields that need ascending sort
 const SORTED_FIELDS = {
-  'max_lifecycle_stage': 'asc'
+  'current_lifecycle_stage': 'asc'
 };
 
 // Binary flags (can be rows, columns, or filters)
 const BINARY_FLAGS = [
-  'has_activated',
-  'is_active_7d',
-  'is_active_30d',
-  'is_paying_customer'
+  'is_currently_anonymous',
+  'has_trial_signup',
+  'is_paying_customer',
+  'has_reached_activation',
+  'has_purchased_plan',
+  'reached_awareness',
+  'reached_interest',
+  'reached_consideration',
+  'reached_trial',
+  'reached_expansion',
+  'reached_retention',
+  'is_active_30d'
 ];
 
 // ID fields (usually not useful in pivots)
-const ID_FIELDS = ['user_key', 'user_id', 'email', 'first_device_id', 'last_device_id'];
+const ID_FIELDS = ['cookie_id'];
 
 /**
  * Categorize query columns based on metadata
@@ -58,9 +66,9 @@ export function categorizeColumns(columns: string[]): {
       sequences.push(col);
     } else if (BINARY_FLAGS.includes(col)) {
       binaryFlags.push(col);
-    } else if (metadata[col]?.type === 'number') {
+    } else if ((metadata as any)[col]?.type === 'number') {
       measures.push(col);
-    } else if (metadata[col]?.type === 'level' || metadata[col]?.type === 'string') {
+    } else if ((metadata as any)[col]?.type === 'level' || (metadata as any)[col]?.type === 'string') {
       dimensions.push(col);
     } else {
       // Unknown field - treat as measure
@@ -83,7 +91,7 @@ function buildMeasureConfig(measureName: string) {
     // IDs use count/distinctcount
     return {
       uniqueName: measureName,
-      aggregation: "count"
+      aggregation: "distinctcount"
     };
   } else if (isBinary) {
     // Binary flags: sum (count) and avg (conversion rate)
@@ -156,7 +164,7 @@ export function generateSliceObject(queryColumns: string[]): SliceObject {
 
   // Check if any hierarchy fields are present
   const hasHierarchyFields = queryColumns.some(col => {
-    const meta = metadata[col];
+    const meta = (metadata as any)[col];
     return meta?.type === 'level';
   });
 
@@ -220,7 +228,7 @@ export function buildCustomSlice(config: {
       ...(config.reportFilters || [])
     ];
     const hasHierarchyFields = allFields.some(col => {
-      const meta = metadata[col];
+      const meta = (metadata as any)[col];
       return meta?.type === 'level';
     });
 
@@ -243,14 +251,14 @@ export function buildCustomSlice(config: {
  * Get field info from metadata
  */
 export function getFieldMetadata(fieldName: string) {
-  return metadata[fieldName];
+  return (metadata as any)[fieldName];
 }
 
 /**
  * Check if field is a hierarchy level
  */
 export function isHierarchyField(fieldName: string): boolean {
-  const meta = metadata[fieldName];
+  const meta = (metadata as any)[fieldName];
   return meta?.type === 'level';
 }
 

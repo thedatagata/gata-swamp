@@ -6,6 +6,7 @@ import { generateChartFromAnalysis } from "../../../../utils/smarter/autovisuali
 import { getSemanticMetadata } from "../../../../utils/smarter/dashboard_utils/semantic-config.ts";
 import FreshChartsWrapper from "../../../../components/charts/FreshChartsWrapper.tsx";
 import type { ChartConfig } from "../../../../utils/smarter/autovisualization_dashboard/chart-generator.ts";
+import { trackPerformance } from "../../../../utils/launchdarkly/events.ts";
 
 interface AutoVisualizationExperienceProps {
   db: any;
@@ -67,6 +68,7 @@ export default function AutoVisualizationExperience({
   const executeQuerySpec = async (spec: any, tables: any) => {
     setQuerying(true);
     setError(null);
+    const startTime = performance.now();
 
     try {
       const table = tables[spec.table];
@@ -97,9 +99,25 @@ export default function AutoVisualizationExperience({
       });
 
       setResult({ query: spec, data: sanitizedData });
+      
+      trackPerformance("metric", "query_execution", "AutoVisualizationExperience", {
+        plan: "smarter",
+        metric: "execution_time",
+        value: performance.now() - startTime,
+        success: true,
+        source: "spec"
+      });
     } catch (error) {
       console.error("Query execution failed:", error);
       setError(error.message);
+      
+      trackPerformance("error", "query_execution", "AutoVisualizationExperience", {
+        plan: "smarter",
+        errorType: error.name,
+        errorMessage: error.message,
+        success: false,
+        source: "spec"
+      });
     } finally {
       setQuerying(false);
     }
@@ -157,13 +175,30 @@ Provide insights in this format:
 
     setError(null);
     setQuerying(true);
+    const startTime = performance.now();
 
     try {
       const { query, data } = await activeHandler.generateQuery(queryText);
       setResult({ query, data });
+      
+      trackPerformance("metric", "query_execution", "AutoVisualizationExperience", {
+        plan: "smarter",
+        metric: "execution_time",
+        value: performance.now() - startTime,
+        success: true,
+        source: "natural_language"
+      });
     } catch (error) {
       console.error("Query failed:", error);
       setError(error.message);
+      
+      trackPerformance("error", "query_execution", "AutoVisualizationExperience", {
+        plan: "smarter",
+        errorType: error.name,
+        errorMessage: error.message,
+        success: false,
+        source: "natural_language"
+      });
     } finally {
       setQuerying(false);
     }

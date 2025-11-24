@@ -1,11 +1,25 @@
 // routes/index.tsx
 import { Head } from "$fresh/runtime.ts";
+import { Handlers, PageProps } from "$fresh/server.ts";
 
 import Nav from "../components/Nav.tsx";
-import Hero from "../components/Hero.tsx";
+import HeroFeature from "../islands/HeroFeature.tsx";
+import ContextSwitcher from "../islands/ContextSwitcher.tsx";
 import Footer from "../components/Footer.tsx";
 
-export default function Home() {
+interface HomeProps {
+  ldClientId: string;
+}
+
+export const handler: Handlers<HomeProps> = {
+  GET(req, ctx) {
+    const ldClientId = Deno.env.get("LAUNCHDARKLY_CLIENT_ID") || "";
+    return ctx.render({ ldClientId });
+  },
+};
+
+export default function Home({ data }: PageProps<HomeProps>) {
+  const { ldClientId } = data;
   return (
     <>
       <Head>
@@ -20,8 +34,9 @@ export default function Home() {
       
       <Nav />
       <main>
-        <Hero />
+        <HeroFeature ldClientId={ldClientId} />
       </main>
+      <ContextSwitcher ldClientId={ldClientId} />
       <Footer />
     </>
   );

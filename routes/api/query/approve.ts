@@ -1,11 +1,10 @@
-// routes/api/query/approve.ts
 import { Handlers } from "$fresh/server.ts";
-
-const kv = await Deno.openKv();
+import { getKv } from "../../../utils/system/db.ts";
 
 export const handler: Handlers = {
   // POST: Approve a cached query
   async POST(req) {
+    const kv = await getKv();
     try {
       const { id } = await req.json();
       
@@ -44,7 +43,7 @@ export const handler: Handlers = {
     } catch (error) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: (error as Error).message 
       }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
@@ -54,6 +53,7 @@ export const handler: Handlers = {
 
   // GET: Get all approved queries
   async GET(req) {
+    const kv = await getKv();
     try {
       const url = new URL(req.url);
       const limit = parseInt(url.searchParams.get("limit") || "10");
@@ -75,7 +75,7 @@ export const handler: Handlers = {
     } catch (error) {
       return new Response(JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: (error as Error).message 
       }), {
         status: 500,
         headers: { "Content-Type": "application/json" },

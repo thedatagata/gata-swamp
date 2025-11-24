@@ -46,150 +46,47 @@
     "events_30d": {"description": "Events in last 30 days", "md_data_type": "BIGINT", "ingest_data_type": "integer", "sanitize": false, "data_type_category": "numerical", "members": null},
     "revenue_30d": {"description": "Revenue in last 30 days", "md_data_type": "DOUBLE", "ingest_data_type": "number", "sanitize": false, "data_type_category": "continuous", "members": null},
     "is_active_30d": {"description": "Whether user is active in last 30 days", "md_data_type": "INTEGER", "ingest_data_type": "integer", "sanitize": false, "data_type_category": "categorical", "members": [0, 1]}
-  },  "dimensions": {
-    "first_session_date": {"alias_name": "first_session_date", "transformation": null, "sort": "asc"},
-    "last_session_date": {"alias_name": "last_session_date", "transformation": null, "sort": "desc"},
-    "current_lifecycle_stage": {"alias_name": "max_lifecycle_stage_name", "transformation": null, "sort": "custom:awareness,interest,consideration,trial,expansion"},
-    "current_plan_tier": {"alias_name": "current_plan_tier", "transformation": "CASE WHEN current_plan_tier = '' OR current_plan_tier IS NULL THEN 'No Plan' ELSE current_plan_tier END", "sort": "custom:starter,business,premium,enterprise"},
-    "first_traffic_source": {"alias_name": "first_touch_utm_source", "transformation": null, "sort": "desc"},
-    "first_traffic_source_type": {"alias_name": "first_traffic_source_type", "transformation": null, "sort": "desc"},
-    "highest_funnel_step_reached": {"alias_name": "highest_funnel_step", "transformation": null, "sort": "asc"},
-    "unique_stages_reached": {"alias_name": "unique_stages_reached", "transformation": null, "sort": "asc"},
-    "days_since_last_session": {"alias_name": "days_since_last_session", "transformation": null, "sort": "asc"},
-    "days_active": {"alias_name": "days_active", "transformation": null, "sort": "desc"},
-    "is_currently_anonymous": {"alias_name": "user_identity_status", "transformation": "CASE WHEN is_currently_anonymous = 1 THEN 'Anonymous' ELSE 'Identified' END", "sort": "none"},
-    "has_trial_signup": {"alias_name": "trial_signup_status", "transformation": "CASE WHEN has_trial_signup = 1 THEN 'Signed Up' ELSE 'No Signup' END", "sort": "none"},
-    "is_paying_customer": {"alias_name": "customer_type", "transformation": "CASE WHEN is_paying_customer = 1 THEN 'Paying' ELSE 'Free' END", "sort": "desc"},
-    "has_reached_activation": {"alias_name": "activation_status", "transformation": "CASE WHEN has_reached_activation = 1 THEN 'Activated' ELSE 'Not Activated' END", "sort": "none"},
-    "has_purchased_plan": {"alias_name": "plan_purchase_status", "transformation": "CASE WHEN has_purchased_plan = true THEN 'Purchased' ELSE 'Not Purchased' END", "sort": "none"},
-    "is_active_30d": {"alias_name": "active_status_30d", "transformation": "CASE WHEN is_active_30d = 1 THEN 'Active' ELSE 'Inactive' END", "sort": "desc"}
-  },  "measures": {
-    "cookie_id": {
-      "aggregations": [],
-      "formula": {
-        "unique_users": {
-          "sql": "COUNT(DISTINCT cookie_id)",
-          "format": "number",
-          "decimals": 0,
-          "description": "Total Unique User Count"
-        }
-      }
-    },
-    "total_sessions": {
-      "aggregations": [
-        {"sum": {"alias": "total_sessions", "format": "number", "decimals": 0}},
-        {"avg": {"alias": "avg_sessions_per_user", "format": "number", "decimals": 1}}
-      ],
-      "formula": null,
-      "description": "Session metrics"
-    },
-    "days_active": {
-      "aggregations": [
-        {"sum": {"alias": "total_days_active", "format": "number", "decimals": 0}},
-        {"avg": {"alias": "avg_days_active", "format": "number", "decimals": 1}}
-      ],
-      "formula": null,
-      "description": "Activity duration metrics"
-    },
-    "lifetime_revenue": {
-      "aggregations": [
-        {"sum": {"alias": "total_lifetime_revenue", "format": "currency", "currency": "USD", "decimals": 2}},
-        {"avg": {"alias": "avg_revenue_per_user", "format": "currency", "currency": "USD", "decimals": 2}}
-      ],
-      "formula": null,
-      "description": "Revenue metrics"
-    },
-    "events_30d": {
-      "aggregations": [
-        {"sum": {"alias": "total_events_30d", "format": "number", "decimals": 0}},
-        {"avg": {"alias": "avg_events_30d", "format": "number", "decimals": 1}}
-      ],
-      "formula": null,
-      "description": "30-day event metrics"
-    },
-    "revenue_30d": {
-      "aggregations": [
-        {"sum": {"alias": "total_revenue_30d", "format": "currency", "currency": "USD", "decimals": 2}},
-        {"avg": {"alias": "avg_revenue_30d", "format": "currency", "currency": "USD", "decimals": 2}}
-      ],
-      "formula": null,
-      "description": "30-day revenue metrics"
-    },
-    "total_events": {
-      "aggregations": [
-        {"sum": {"alias": "total_all_events", "format": "number", "decimals": 0}},
-        {"avg": {"alias": "avg_total_events", "format": "number", "decimals": 1}}
-      ],
-      "formula": null,
-      "description": "Total event metrics"
-    },
-    "is_active_30d": {
-      "aggregations": [],
-      "formula": {
-        "total_active_30d": {
-          "sql": "SUM(CASE WHEN is_active_30d = 1 THEN 1 ELSE 0 END)",
-          "format": "number",
-          "decimals": 0,
-          "description": "Total users active in last 30 days"
-        },
-        "active_30d_rate": {
-          "sql": "AVG(CASE WHEN is_active_30d = 1 THEN 100.0 ELSE 0.0 END)",
-          "format": "percentage",
-          "decimals": 1,
-          "description": "Percentage of users active in last 30 days"
-        }
-      }
-    },
-    "has_trial_signup": {
-      "aggregations": [],
-      "formula": {
-        "trial_signup_rate": {
-          "sql": "AVG(CASE WHEN has_trial_signup = 1 THEN 100.0 ELSE 0.0 END)",
-          "format": "percentage",
-          "decimals": 1,
-          "description": "Trial signup conversion rate"
-        },
-        "total_trial_signups": {
-          "sql": "SUM(CASE WHEN has_trial_signup = 1 THEN 1 ELSE 0 END)",
-          "format": "number",
-          "decimals": 0,
-          "description": "Total users with trial signup"
-        }
-      }
-    },
-    "is_paying_customer": {
-      "aggregations": [],
-      "formula": {
-        "paying_customer_rate": {
-          "sql": "AVG(CASE WHEN is_paying_customer = 1 THEN 100.0 ELSE 0.0 END)",
-          "format": "percentage",
-          "decimals": 1,
-          "description": "Paying customer conversion rate"
-        },
-        "total_paying_customers": {
-          "sql": "SUM(CASE WHEN is_paying_customer = 1 THEN 1 ELSE 0 END)",
-          "format": "number",
-          "decimals": 0,
-          "description": "Total paying customers"
-        }
-      }
-    },
-    "has_reached_activation": {
-      "aggregations": [],
-      "formula": {
-        "activation_rate": {
-          "sql": "AVG(CASE WHEN has_reached_activation = 1 THEN 100.0 ELSE 0.0 END)",
-          "format": "percentage",
-          "decimals": 1,
-          "description": "User activation rate"
-        },
-        "total_activated_users": {
-          "sql": "SUM(CASE WHEN has_reached_activation = 1 THEN 1 ELSE 0 END)",
-          "format": "number",
-          "decimals": 0,
-          "description": "Total activated users"
-        }
-      }
-    }
+  },
+  "dimensions": {
+    "first_session_date": {"alias_name": "first_session_date", "transformation": null},
+    "last_session_date": {"alias_name": "last_session_date", "transformation": null},
+    "current_lifecycle_stage": {"alias_name": "current_lifecycle_stage", "transformation": null},
+    "current_plan_tier": {"alias_name": "plan_tier", "transformation": "CASE WHEN current_plan_tier = '' OR current_plan_tier IS NULL THEN 'No Plan' ELSE current_plan_tier END"},
+    "first_traffic_source": {"alias_name": "first_traffic_source", "transformation": null},
+    "first_traffic_source_type": {"alias_name": "first_traffic_source_type", "transformation": null},
+    "highest_funnel_step_reached": {"alias_name": "highest_funnel_step_reached", "transformation": null},
+    "unique_stages_reached": {"alias_name": "unique_stages_reached", "transformation": null},
+    "days_since_last_session": {"alias_name": "days_since_last_session", "transformation": null},
+    "days_active": {"alias_name": "days_active", "transformation": null},
+    "is_currently_anonymous": {"alias_name": "user_identity", "transformation": "CASE WHEN is_currently_anonymous = 1 THEN 'Anonymous' ELSE 'Identified' END"},
+    "has_trial_signup": {"alias_name": "trial_status", "transformation": "CASE WHEN has_trial_signup = 1 THEN 'Signed Up' ELSE 'No Signup' END"},
+    "is_paying_customer": {"alias_name": "customer_type", "transformation": "CASE WHEN is_paying_customer = 1 THEN 'Paying' ELSE 'Free' END"},
+    "has_reached_activation": {"alias_name": "activation_status", "transformation": "CASE WHEN has_reached_activation = 1 THEN 'Activated' ELSE 'Not Activated' END"},
+    "has_purchased_plan": {"alias_name": "purchase_status", "transformation": "CASE WHEN has_purchased_plan = true THEN 'Purchased' ELSE 'Not Purchased' END"},
+    "is_active_30d": {"alias_name": "recent_activity", "transformation": "CASE WHEN is_active_30d = 1 THEN 'Active' ELSE 'Inactive' END"}
+  },
+  "measures": {
+    "cookie_id": {"aggregations": [], "formula": {"unique_users": {"sql": "COUNT(DISTINCT cookie_id)", "format": "number", "decimals": 0, "description": "Total unique user count"}}},
+    "total_sessions": {"aggregations": [{"sum": {"alias": "total_sessions_sum", "format": "number", "decimals": 0, "description": "SUM: Total sessions across all users"}}, {"avg": {"alias": "total_sessions_avg", "format": "number", "decimals": 1, "description": "AVG: Average sessions per user"}}], "formula": null},
+    "days_active": {"aggregations": [{"sum": {"alias": "days_active_sum", "format": "number", "decimals": 0, "description": "SUM: Total active days across all users"}}, {"avg": {"alias": "days_active_avg", "format": "number", "decimals": 1, "description": "AVG: Average active days per user"}}], "formula": null},
+    "lifetime_revenue": {"aggregations": [{"sum": {"alias": "total_lifetime_revenue", "format": "currency", "currency": "USD", "decimals": 2, "description": "SUM: Total lifetime revenue across all users"}}, {"avg": {"alias": "avg_revenue_per_user", "format": "currency", "currency": "USD", "decimals": 2, "description": "AVG: Average lifetime revenue per user"}}], "formula": null},
+    "events_30d": {"aggregations": [{"sum": {"alias": "total_events_30d", "format": "number", "decimals": 0, "description": "SUM: Total events in last 30 days across all users"}}, {"avg": {"alias": "avg_events_30d", "format": "number", "decimals": 1, "description": "AVG: Average events per user in last 30 days"}}], "formula": null},
+    "revenue_30d": {"aggregations": [{"sum": {"alias": "total_revenue_30d", "format": "currency", "currency": "USD", "decimals": 2, "description": "SUM: Total revenue in last 30 days across all users"}}, {"avg": {"alias": "avg_revenue_30d", "format": "currency", "currency": "USD", "decimals": 2, "description": "AVG: Average revenue per user in last 30 days"}}], "formula": null},
+    "total_events": {"aggregations": [{"sum": {"alias": "total_all_events", "format": "number", "decimals": 0, "description": "SUM: Total lifetime events across all users"}}, {"avg": {"alias": "avg_total_events", "format": "number", "decimals": 1, "description": "AVG: Average lifetime events per user"}}], "formula": null},
+    "is_currently_anonymous": {"aggregations": [{"sum": {"alias": "total_anonymous_users", "format": "number", "decimals": 0, "description": "SUM: Total anonymous users"}}, {"avg": {"alias": "anonymous_user_rate", "format": "percentage", "decimals": 1, "description": "AVG: Percentage of users who are anonymous"}}], "formula": null},
+    "is_active_30d": {"aggregations": [], "formula": {"active_users_30d": {"sql": "SUM(CASE WHEN is_active_30d = 1 THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Total users active in last 30 days"}, "active_rate_30d": {"sql": "AVG(CASE WHEN is_active_30d = 1 THEN 100.0 ELSE 0.0 END)", "format": "percentage", "decimals": 1, "description": "Percentage of users active in last 30 days"}}},
+    "has_trial_signup": {"aggregations": [], "formula": {"trial_signup_rate": {"sql": "AVG(CASE WHEN has_trial_signup = 1 THEN 100.0 ELSE 0.0 END)", "format": "percentage", "decimals": 1, "description": "Trial signup conversion rate"}, "total_trial_signups": {"sql": "SUM(CASE WHEN has_trial_signup = 1 THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Total users with trial signup"}}},
+    "is_paying_customer": {"aggregations": [], "formula": {"paying_customer_rate": {"sql": "AVG(CASE WHEN is_paying_customer = 1 THEN 100.0 ELSE 0.0 END)", "format": "percentage", "decimals": 1, "description": "Paying customer conversion rate"}, "total_paying_customers": {"sql": "SUM(CASE WHEN is_paying_customer = 1 THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Total paying customers"}}},
+    "has_reached_activation": {"aggregations": [], "formula": {"activation_rate": {"sql": "AVG(CASE WHEN has_reached_activation = 1 THEN 100.0 ELSE 0.0 END)", "format": "percentage", "decimals": 1, "description": "User activation rate"}, "total_activated_users": {"sql": "SUM(CASE WHEN has_reached_activation = 1 THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Total activated users"}}},
+    "reached_awareness": {"aggregations": [{"sum": {"alias": "total_reached_awareness", "format": "number", "decimals": 0, "description": "SUM: Total users who reached awareness stage"}}, {"avg": {"alias": "reached_awareness_rate", "format": "percentage", "decimals": 1, "description": "AVG: Percentage of users who reached awareness stage"}}], "formula": null},
+    "reached_interest": {"aggregations": [{"sum": {"alias": "total_reached_interest", "format": "number", "decimals": 0, "description": "SUM: Total users who reached interest stage"}}, {"avg": {"alias": "reached_interest_rate", "format": "percentage", "decimals": 1, "description": "AVG: Percentage of users who reached interest stage"}}], "formula": null},
+    "reached_consideration": {"aggregations": [{"sum": {"alias": "total_reached_consideration", "format": "number", "decimals": 0, "description": "SUM: Total users who reached consideration stage"}}, {"avg": {"alias": "reached_consideration_rate", "format": "percentage", "decimals": 1, "description": "AVG: Percentage of users who reached consideration stage"}}], "formula": null},
+    "reached_trial": {"aggregations": [{"sum": {"alias": "total_reached_trial", "format": "number", "decimals": 0, "description": "SUM: Total users who reached trial stage"}}, {"avg": {"alias": "reached_trial_rate", "format": "percentage", "decimals": 1, "description": "AVG: Percentage of users who reached trial stage"}}], "formula": null},
+    "reached_expansion": {"aggregations": [{"sum": {"alias": "total_reached_expansion", "format": "number", "decimals": 0, "description": "SUM: Total users who reached expansion stage"}}, {"avg": {"alias": "reached_expansion_rate", "format": "percentage", "decimals": 1, "description": "AVG: Percentage of users who reached expansion stage"}}], "formula": null},
+    "reached_retention": {"aggregations": [{"sum": {"alias": "total_reached_retention", "format": "number", "decimals": 0, "description": "SUM: Total users who reached retention stage"}}, {"avg": {"alias": "reached_retention_rate", "format": "percentage", "decimals": 1, "description": "AVG: Percentage of users who reached retention stage"}}], "formula": null},
+    "first_traffic_source": {"aggregations": [], "formula": {"direct_users": {"sql": "SUM(CASE WHEN first_traffic_source = 'direct' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from direct traffic"}, "email_users": {"sql": "SUM(CASE WHEN first_traffic_source = 'email' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from email"}, "facebook_organic_users": {"sql": "SUM(CASE WHEN first_traffic_source = 'facebook_organic' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from organic Facebook"}, "facebook_paid_users": {"sql": "SUM(CASE WHEN first_traffic_source = 'facebook_paid' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from paid Facebook ads"}, "google_organic_users": {"sql": "SUM(CASE WHEN first_traffic_source = 'google_organic' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from organic Google search"}, "google_paid_users": {"sql": "SUM(CASE WHEN first_traffic_source = 'google_paid' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from paid Google ads"}}},
+    "first_traffic_source_type": {"aggregations": [], "formula": {"email_type_users": {"sql": "SUM(CASE WHEN first_traffic_source_type = 'email' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from email traffic type"}, "organic_traffic_users": {"sql": "SUM(CASE WHEN first_traffic_source_type = 'organic_traffic' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from organic traffic"}, "paid_ad_traffic_users": {"sql": "SUM(CASE WHEN first_traffic_source_type = 'paid_ad_traffic' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users from paid ad traffic"}, "returning_users": {"sql": "SUM(CASE WHEN first_traffic_source_type = 'returning' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Returning users"}}},
+    "current_plan_tier": {"aggregations": [], "formula": {"starter_plan_users": {"sql": "SUM(CASE WHEN current_plan_tier = 'starter' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users on starter plan"}, "business_plan_users": {"sql": "SUM(CASE WHEN current_plan_tier = 'business' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users on business plan"}, "premium_plan_users": {"sql": "SUM(CASE WHEN current_plan_tier = 'premium' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users on premium plan"}, "enterprise_plan_users": {"sql": "SUM(CASE WHEN current_plan_tier = 'enterprise' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users on enterprise plan"}}},
+    "current_lifecycle_stage": {"aggregations": [], "formula": {"awareness_users": {"sql": "SUM(CASE WHEN current_lifecycle_stage = 'awareness' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users in awareness stage"}, "interest_users": {"sql": "SUM(CASE WHEN current_lifecycle_stage = 'interest' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users in interest stage"}, "consideration_users": {"sql": "SUM(CASE WHEN current_lifecycle_stage = 'consideration' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users in consideration stage"}, "trial_users": {"sql": "SUM(CASE WHEN current_lifecycle_stage = 'trial' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users in trial stage"}, "expansion_users": {"sql": "SUM(CASE WHEN current_lifecycle_stage = 'expansion' THEN 1 ELSE 0 END)", "format": "number", "decimals": 0, "description": "Users in expansion stage"}}}
   }
 }

@@ -116,36 +116,60 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
 
         // Build column metadata from semantic layer
         const usersConfig = getSemanticMetadata("users");
-        const semanticFields = [
-          ...Object.entries(usersConfig.dimensions).map(([key, config]: [string, any]) => {
-            const sourceField = usersConfig.fields[config.column] || usersConfig.fields[key];
-            const description = sourceField?.description || config.transformation || config.column || key;
-            return {
-              column_name: config.alias_name || key,
-              type: 'DIMENSION',
-              description: description,
-              isNumeric: false,
-              isDate: config.column?.includes('date'),
-              isBoolean: false
-            };
-          }),
-          ...Object.entries(usersConfig.measures).map(([key, config]: [string, any]) => {
-            const sourceField = usersConfig.fields[key];
-            let description = sourceField?.description || config.description || key;
-            if (config.formula && Object.keys(config.formula).length > 0) {
-              const formulaAlias = Object.keys(config.formula)[0];
-              description = config.formula[formulaAlias].description || description;
-            }
-            return {
-              column_name: key,
-              type: 'MEASURE',
-              description: description,
-              isNumeric: true,
-              isDate: false,
-              isBoolean: false
-            };
-          })
-        ];
+        const semanticFields: any[] = [];
+        
+        // Add dimensions
+        Object.entries(usersConfig.dimensions).forEach(([key, config]: [string, any]) => {
+          const sourceField = usersConfig.fields[key];
+          const description = sourceField?.description || config.transformation || key;
+          semanticFields.push({
+            column_name: config.alias_name || key,
+            type: 'DIMENSION',
+            description: description,
+            isNumeric: false,
+            isDate: key.includes('date'),
+            isBoolean: false
+          });
+        });
+        
+        // Add measures - iterate through ALL aliases (aggregations + formulas)
+        Object.entries(usersConfig.measures).forEach(([key, config]: [string, any]) => {
+          const sourceField = usersConfig.fields[key];
+          const baseDescription = sourceField?.description || config.description || key;
+          
+          // Add aggregation aliases
+          if (config.aggregations && Array.isArray(config.aggregations)) {
+            config.aggregations.forEach((aggObj: any) => {
+              const aggType = Object.keys(aggObj)[0]; // 'sum', 'avg', 'count', etc.
+              const aggConfig = aggObj[aggType];
+              if (aggConfig.alias) {
+                semanticFields.push({
+                  column_name: aggConfig.alias,
+                  type: 'MEASURE',
+                  description: aggConfig.description || `${aggType.toUpperCase()} of ${baseDescription}`,
+                  isNumeric: true,
+                  isDate: false,
+                  isBoolean: false
+                });
+              }
+            });
+          }
+          
+          // Add formula aliases
+          if (config.formula && typeof config.formula === 'object') {
+            Object.entries(config.formula).forEach(([formulaAlias, formulaConfig]: [string, any]) => {
+              semanticFields.push({
+                column_name: formulaAlias,
+                type: 'MEASURE',
+                description: formulaConfig.description || `Formula: ${formulaAlias}`,
+                isNumeric: true,
+                isDate: false,
+                isBoolean: false
+              });
+            });
+          }
+        });
+        
         setColumnsMetadata(semanticFields);
       } catch (err) {
         console.error("Dashboard load error:", err);
@@ -367,21 +391,27 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KPICard 
           title="Trial Users" 
-          value={trialUsersCurrent} 
+          value={trialUsers.value} 
+          previousValue={trialUsers.previousValue}
+          changePercent={trialUsers.changePercent}
           format="number" 
           decimals={0}
           loading={loading} 
         />
         <KPICard 
           title="Onboarding Users" 
-          value={onboardingUsersCurrent} 
+          value={onboardingUsers.value} 
+          previousValue={onboardingUsers.previousValue}
+          changePercent={onboardingUsers.changePercent}
           format="number" 
           decimals={0}
           loading={loading} 
         />
         <KPICard 
           title="Active Customers" 
-          value={customerUsersCurrent} 
+          value={customerUsers.value} 
+          previousValue={customerUsers.previousValue}
+          changePercent={customerUsers.changePercent}
           format="number" 
           decimals={0}
           loading={loading} 

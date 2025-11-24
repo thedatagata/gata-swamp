@@ -1,5 +1,5 @@
 // islands/dashboard/starter_dashboard/BaseDashboardWizard.tsx
-import { useEffect, useState, useRef } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { createMotherDuckClient } from "../../../utils/services/motherduck-client.ts";
 import WebDataRocksPivot from "./WebDataRocksPivot.tsx";
 import FieldCatalog from "./FieldCatalog.tsx";
@@ -11,35 +11,36 @@ import {
 } from "../../../utils/starter/pivot-query-builder.ts";
 import { getLDClient } from "../../../utils/launchdarkly/client.ts";
 import { trackView, trackInteraction } from "../../../utils/launchdarkly/events.ts";
+import UpgradeModal from "../../../components/UpgradeModal.tsx";
 
 interface BaseDashboardWizardProps {
   motherDuckToken: string;
   sessionId: string;
-  onUpgrade?: () => void;
 }
 
-export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgrade }: BaseDashboardWizardProps) {
+export default function BaseDashboardWizard({ motherDuckToken, sessionId }: BaseDashboardWizardProps) {
   const [client, setClient] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
   // LaunchDarkly AI access state
   const [hasAIAccess, setHasAIAccess] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeModalConfig, setUpgradeModalConfig] = useState<{
+    show: boolean;
+    feature: "ai_query_access" | "data_limit";
+    upgradeType: "feature" | "plan";
+  }>({ show: false, feature: "ai_query_access", upgradeType: "feature" });
   
-  const [sqlQuery, setSqlQuery] = useState<string>(`SELECT total_events, total_revenue, max_lifecycle_stage_name FROM amplitude.users_fct WHERE last_event_date >= CURRENT_DATE - INTERVAL 30 DAYS`);
+  const [sqlQuery, setSqlQuery] = useState<string>(`SELECT total_events, lifetime_revenue, current_lifecycle_stage FROM amplitude.users_pivot_src WHERE last_session_date >= CURRENT_DATE - INTERVAL 30 DAYS`);
   
   const [naturalLanguagePrompt, setNaturalLanguagePrompt] = useState<string>(
-    "I want to look at [total revenue, activated users] by [first touch UTM source, lifecycle stage] for the past [3 months]"
+    "I want to look at [lifetime revenue, activated users] by [first traffic source, lifecycle stage] for the past [3 months]"
   );
   
   const [queryResults, setQueryResults] = useState<any[]>([]);
   const [pivotReport, setPivotReport] = useState<any>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showResults, setShowResults] = useState(false);
-  
-  // Persistent container ref for WebDataRocks
-  const pivotContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     initializeClient();
@@ -61,11 +62,18 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
   function checkAIAccess() {
     const ldClient = getLDClient();
     if (ldClient) {
-      const aiAccess = ldClient.variation("starter-ai-query-access", false);
-      setHasAIAccess(aiAccess);
+      // Check flag first
+      const flagAccess = ldClient.variation("starter-ai-query-access", false);
+      
+      // Also check user context directly (in case flag logic relies on it but is slow, or if we want to trust the context)
+      const context = ldClient.getContext();
+      const contextAccess = context?.custom?.ai_addon_unlocked === true;
+      
+      const hasAccess = flagAccess || contextAccess;
+      setHasAIAccess(hasAccess);
       
       // Track view of gated feature
-      if (!aiAccess) {
+      if (!hasAccess) {
         trackView("gate", "feature_gate", "BaseDashboardWizard", {
           plan: "starter",
           feature: "ai_query_generation",
@@ -83,7 +91,7 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
         featureRequested: "ai_query_access"
       });
       
-      setShowUpgradeModal(true);
+      setUpgradeModalConfig({ show: true, feature: "ai_query_access", upgradeType: "feature" });
       return;
     }
     
@@ -99,7 +107,7 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
         plan: "starter",
         featureRequested: "ai_query_access"
       });
-      setShowUpgradeModal(true);
+      setUpgradeModalConfig({ show: true, feature: "ai_query_access", upgradeType: "feature" });
       return;
     }
     
@@ -119,7 +127,7 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
       console.log('Prompt:', naturalLanguagePrompt);
       
       // Use MotherDuck's PROMPT_SQL with include_tables parameter
-      const promptSQL = `CALL prompt_sql('${naturalLanguagePrompt.replace(/'/g, "''")}', include_tables=['amplitude.users_fct'])`;
+      const promptSQL = `CALL prompt_sql('${naturalLanguagePrompt.replace(/'/g, "''")}', include_tables=['amplitude.users_pivot_src'])`;
       console.log('📤 Submitting to MotherDuck:', promptSQL);
       
       const result = await client.evaluateQuery(promptSQL);
@@ -205,13 +213,15 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
     } catch (err) {
       console.error('❌ Query execution failed:', err);
       
+      const errorMsg = err instanceof Error ? err.message : String(err);
+
       // Handle 1MB limit error with upsell
-      if (err.message?.includes('too large') || 
-          err.message?.includes('1MB') || 
-          err.message?.includes('exceeds')) {
+      if (errorMsg.includes('too large') || 
+          errorMsg.includes('1MB') || 
+          errorMsg.includes('exceeds')) {
         setError(handle1MBLimitError());
       } else {
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorMsg);
       }
       
       setLoading(false);
@@ -235,9 +245,10 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
         <p class="text-sm font-semibold text-rose-200 mb-2">Error</p>
         <pre class="text-sm text-rose-100 whitespace-pre-wrap mb-4">{error}</pre>
         
-        {isLimitError && onUpgrade && (
+        {isLimitError && (
           <button
-            onClick={onUpgrade}
+            type="button"
+            onClick={() => setUpgradeModalConfig({ show: true, feature: "data_limit", upgradeType: "plan" })}
             class="w-full py-3 px-6 bg-gradient-to-r from-[#90C137] to-[#a0d147] text-[#172217] rounded-lg font-semibold hover:from-[#a0d147] hover:to-[#b0e157] transition-all shadow-lg flex items-center justify-center gap-2"
           >
             <span class="text-xl">✨</span>
@@ -253,10 +264,12 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
     <div class="max-w-7xl mx-auto p-6 space-y-6">
       
       {/* Upgrade Modal */}
-      {showUpgradeModal && (
+      {upgradeModalConfig.show && (
         <UpgradeModal 
-          feature="ai_query_access"
-          onClose={() => setShowUpgradeModal(false)}
+          feature={upgradeModalConfig.feature}
+          upgradeType={upgradeModalConfig.upgradeType}
+          sessionId={sessionId}
+          onClose={() => setUpgradeModalConfig({ ...upgradeModalConfig, show: false })}
         />
       )}
       
@@ -301,6 +314,7 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
           </div>
 
           <button
+            type="button"
             onClick={handleGenerateSQLFromPrompt}
             disabled={loading || !naturalLanguagePrompt.trim() || !client}
             class={`w-full py-3 font-semibold rounded-lg transition-all ${
@@ -349,12 +363,13 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
           <textarea
             value={sqlQuery}
             onInput={(e) => setSqlQuery((e.target as HTMLTextAreaElement).value)}
-            placeholder="SELECT total_events, total_revenue, max_lifecycle_stage_name FROM amplitude.users_fct WHERE last_event_date >= CURRENT_DATE - INTERVAL 30 DAYS"
+            placeholder="SELECT total_events, lifetime_revenue, current_lifecycle_stage FROM amplitude.users_pivot_src WHERE last_session_date >= CURRENT_DATE - INTERVAL 30 DAYS"
             class="w-full h-48 px-3 py-2 bg-gata-dark/40 border border-gata-green/30 rounded-lg text-gata-cream placeholder-gata-cream/40 font-mono text-sm focus:border-gata-green focus:ring-2 focus:ring-gata-green/20"
           />
 
           <div class="flex gap-3">
             <button
+              type="button"
               onClick={handleExecuteQuery}
               disabled={loading || !sqlQuery.trim() || !client}
               class="flex-1 py-3 bg-gata-green text-gata-dark font-semibold rounded-lg hover:bg-gata-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -371,6 +386,7 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
         {/* Back Button */}
         <div class="flex items-center gap-4">
           <button
+            type="button"
             onClick={() => {
               setShowResults(false);
               setPivotReport(null);
@@ -454,66 +470,4 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
   );
 }
 
-// Temporary inline UpgradeModal until we create the separate component
-function UpgradeModal({ feature, onClose }: { feature: string; onClose: () => void }) {
-  useEffect(() => {
-    trackView("modal", "upsell", "UpgradeModal", {
-      plan: "starter",
-      contentType: "upgrade",
-      feature
-    });
-  }, []);
-
-  const handleUpgradeClick = () => {
-    trackInteraction("click", "upgrade_button", "upsell", "UpgradeModal", {
-      plan: "starter",
-      destination: "/checkout?plan=starter-ai",
-      feature
-    });
-    window.location.href = "/checkout?plan=starter-ai&feature=" + feature;
-  };
-
-  const handleDismiss = () => {
-    trackInteraction("dismiss", "modal_close", "upsell", "UpgradeModal", {
-      plan: "starter",
-      feature
-    });
-    onClose();
-  };
-
-  return (
-    <div 
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={handleDismiss}
-    >
-      <div 
-        class="bg-gata-dark border-2 border-gata-green rounded-lg p-8 max-w-md mx-4 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 class="text-2xl font-bold text-gata-green mb-3">✨ Unlock AI-Powered Queries</h2>
-        <p class="text-gata-cream/80 mb-6">
-          Generate SQL instantly with natural language prompts
-        </p>
-        <ul class="space-y-2 mb-6 text-gata-cream/70">
-          <li>✓ Natural language to SQL</li>
-          <li>✓ Query suggestions</li>
-          <li>✓ Error corrections</li>
-        </ul>
-        <div class="flex gap-3">
-          <button
-            onClick={handleUpgradeClick}
-            class="flex-1 py-3 bg-gata-green text-gata-dark font-semibold rounded-lg hover:bg-gata-hover transition-all"
-          >
-            Add AI to Starter Plan
-          </button>
-          <button
-            onClick={handleDismiss}
-            class="px-6 py-3 bg-gata-dark/40 text-gata-cream border border-gata-green/30 rounded-lg hover:bg-gata-dark/60 transition-all"
-          >
-            Maybe Later
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// Removed inline UpgradeModal in favor of shared component

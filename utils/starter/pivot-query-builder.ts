@@ -12,6 +12,10 @@ export function extractColumnsFromSQL(sql: string): string[] {
   
   let selectClause = selectMatch[1];
   
+  // Remove DISTINCT keyword from beginning of SELECT clause
+  // This handles: SELECT DISTINCT col1, col2...
+  selectClause = selectClause.replace(/^DISTINCT\s+/i, '');
+  
   // Split by comma, clean up each column
   const columns = selectClause
     .split(',')
@@ -22,8 +26,13 @@ export function extractColumnsFromSQL(sql: string): string[] {
       col = col.replace(/\s+AS\s+\w+$/i, '');
       
       // Strip aggregation functions: SUM(x) → x, MAX(y) → y
+      // This handles: COUNT(DISTINCT x), SUM(y), etc.
       col = col.replace(/^(SUM|AVG|COUNT|MAX|MIN|ANY_VALUE)\s*\(/i, '');
       col = col.replace(/\)$/, '');
+      
+      // Strip standalone DISTINCT keyword from middle of column list
+      // This handles the error case: SELECT col1, DISTINCT col2
+      col = col.replace(/^DISTINCT\s+/i, '');
       
       return col.trim();
     })
@@ -43,7 +52,7 @@ export function validateQueryColumns(columns: string[]): {
   const invalid: string[] = [];
   
   columns.forEach(col => {
-    if (metadataJson[col]) {
+    if ((metadataJson as any)[col]) {
       valid.push(col);
     } else {
       invalid.push(col);
@@ -62,8 +71,7 @@ function completeHierarchies(columns: string[]): string[] {
   
   // Define UTM hierarchy groups
   const utmHierarchies = {
-    FirstTouch: ['first_touch_utm_medium', 'first_touch_utm_source'],
-    LastTouch: ['last_touch_utm_medium', 'last_touch_utm_source']
+    TrafficSource: ['first_traffic_source_type', 'first_traffic_source']
   };
   
   const added: string[] = [];
@@ -114,11 +122,15 @@ export function buildReportFromSQL(userSQL: string) {
     warnings.push('🔄 Removed LIMIT - fetching all data');
   }
   
-  // Strip aggregations from SELECT clause
+  // Strip aggregations and DISTINCT from SELECT clause
   const selectMatch = cleanSQL.match(/SELECT\s+(.*?)\s+FROM/is);
-  if (selectMatch && /SUM\(|AVG\(|COUNT\(|MAX\(|MIN\(/i.test(selectMatch[1])) {
+  if (selectMatch && (/SUM\(|AVG\(|COUNT\(|MAX\(|MIN\(/i.test(selectMatch[1]) || /DISTINCT/i.test(selectMatch[1]))) {
     const originalSelect = selectMatch[1];
-    const cleanSelect = originalSelect
+    
+    // Remove DISTINCT from beginning of SELECT clause
+    let cleanSelect = originalSelect.replace(/^DISTINCT\s+/i, '');
+    
+    cleanSelect = cleanSelect
       .split(',')
       .map(col => {
         col = col.trim();
@@ -127,12 +139,20 @@ export function buildReportFromSQL(userSQL: string) {
         // Remove aggregations
         col = col.replace(/^(SUM|AVG|COUNT|MAX|MIN|ANY_VALUE)\s*\(/i, '');
         col = col.replace(/\)$/, '');
+        // Remove standalone DISTINCT from middle of column list
+        col = col.replace(/^DISTINCT\s+/i, '');
         return col.trim();
       })
       .join(', ');
     
     cleanSQL = cleanSQL.replace(selectMatch[0], `SELECT ${cleanSelect} FROM`);
-    warnings.push('🔄 Removed aggregations - WebDataRocks handles aggregation');
+    
+    if (/DISTINCT/i.test(originalSelect)) {
+      warnings.push('🔄 Removed DISTINCT - WebDataRocks handles deduplication');
+    }
+    if (/SUM\(|AVG\(|COUNT\(|MAX\(|MIN\(/i.test(originalSelect)) {
+      warnings.push('🔄 Removed aggregations - WebDataRocks handles aggregation');
+    }
   }
   
   // Auto-complete hierarchies

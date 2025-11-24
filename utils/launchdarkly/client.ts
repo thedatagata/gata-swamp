@@ -1,5 +1,5 @@
 // utils/launchdarkly/client.ts
-import * as LDClient from "@launchdarkly/js-client-sdk";
+import * as LDClient from "launchdarkly-js-client-sdk";
 
 let ldClient: any = null;
 
@@ -16,7 +16,6 @@ export async function initializeLaunchDarkly(context: any, clientSideId?: string
 
   ldClient = LDClient.initialize(ldClientId, context, {
     streaming: true,
-    bootstrap: 'localStorage',
   });
 
   await ldClient.waitForInitialization();
