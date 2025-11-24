@@ -54,7 +54,7 @@ export async function getUser(username: string): Promise<User | null> {
   return result.value;
 }
 
-export async function updateUser(username: string, updates: Partial<Pick<User, "plan_tier" | "ai_addon_unlocked" | "ai_analyst_unlocked" | "motherDuckToken">>): Promise<void> {
+export async function updateUser(username: string, updates: Partial<Pick<User, "plan_tier" | "ai_addon_unlocked" | "ai_analyst_unlocked" | "motherDuckToken" | "preferred_model_tier">>): Promise<void> {
   const kv = await getKv();
   const key = ["users", username];
   

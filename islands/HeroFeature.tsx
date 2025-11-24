@@ -141,30 +141,65 @@ export default function HeroFeature({ ldClientId }: HeroFeatureProps) {
               pizza where you choose your toppings and don't have to compromise with the team that
               wants pineapple.
             </p>
-            <div class="flex flex-wrap gap-4 pt-4">
-              <a
-                href="/app/dashboard"
-                onClick={trackSignup}
-                class="inline-flex items-center px-6 py-3 bg-[#90C137] text-[#172217] font-medium rounded-md hover:bg-[#a0d147] transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                Get Started Building your Personal Pie for Free
-                <svg
-                  class="ml-2 w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M14 5l7 7m0 0l-7 7m7-7H3"
-                  >
-                  </path>
-                </svg>
-              </a>
-            </div>
+              <div class="pt-4 max-w-md">
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const email = (form.elements.namedItem('email') as HTMLInputElement).value;
+                  const btn = form.querySelector('button');
+                  const msg = document.getElementById('access-msg');
+                  
+                  if (btn) btn.disabled = true;
+                  if (msg) msg.textContent = 'Verifying access...';
+                  
+                  try {
+                    const res = await fetch('/api/demo/access', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email })
+                    });
+                    
+                    if (res.ok) {
+                      globalThis.location.href = '/demo/setup';
+                    } else {
+                      const data = await res.json();
+                      if (msg) {
+                        msg.textContent = '❌ ' + (data.error || 'Access denied');
+                        msg.className = 'text-red-400 text-sm mt-2';
+                      }
+                      if (btn) btn.disabled = false;
+                    }
+                  } catch (err) {
+                    if (msg) {
+                      msg.textContent = '❌ Connection failed';
+                      msg.className = 'text-red-400 text-sm mt-2';
+                    }
+                    if (btn) btn.disabled = false;
+                  }
+                }} class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium text-[#F8F6F0]/80 mb-1">
+                      Enter your email to access the demo
+                    </label>
+                    <div class="flex gap-2">
+                      <input 
+                        type="email" 
+                        name="email"
+                        required
+                        placeholder="name@company.com"
+                        class="flex-1 px-4 py-3 bg-[#172217]/50 border border-[#90C137]/30 rounded-lg text-[#F8F6F0] placeholder-[#F8F6F0]/30 focus:border-[#90C137] focus:ring-1 focus:ring-[#90C137] outline-none transition-all"
+                      />
+                      <button
+                        type="submit"
+                        class="px-6 py-3 bg-[#90C137] text-[#172217] font-bold rounded-lg hover:bg-[#a0d147] transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                      >
+                        Access Demo
+                      </button>
+                    </div>
+                    <div id="access-msg" class="text-[#F8F6F0]/60 text-sm mt-2"></div>
+                  </div>
+                </form>
+              </div>
           </div>
         </div>
       </div>

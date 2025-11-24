@@ -5,6 +5,10 @@
 import * as $_404 from "./routes/_404.tsx";
 import * as $_app from "./routes/_app.tsx";
 import * as $_middleware from "./routes/_middleware.ts";
+import * as $admin_users from "./routes/admin/users.tsx";
+import * as $api_admin_create_user from "./routes/api/admin/create-user.ts";
+import * as $api_admin_delete_user from "./routes/api/admin/delete-user.ts";
+import * as $api_admin_list_users from "./routes/api/admin/list-users.ts";
 import * as $api_auth_login from "./routes/api/auth/login.ts";
 import * as $api_auth_logout from "./routes/api/auth/logout.ts";
 import * as $api_auth_me from "./routes/api/auth/me.ts";
@@ -50,6 +54,10 @@ const manifest = {
     "./routes/_404.tsx": $_404,
     "./routes/_app.tsx": $_app,
     "./routes/_middleware.ts": $_middleware,
+    "./routes/admin/users.tsx": $admin_users,
+    "./routes/api/admin/create-user.ts": $api_admin_create_user,
+    "./routes/api/admin/delete-user.ts": $api_admin_delete_user,
+    "./routes/api/admin/list-users.ts": $api_admin_list_users,
     "./routes/api/auth/login.ts": $api_auth_login,
     "./routes/api/auth/logout.ts": $api_auth_logout,
     "./routes/api/auth/me.ts": $api_auth_me,

@@ -270,6 +270,10 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId }: Base
           upgradeType={upgradeModalConfig.upgradeType}
           sessionId={sessionId}
           onClose={() => setUpgradeModalConfig({ ...upgradeModalConfig, show: false })}
+          onSuccess={() => {
+            // Refresh AI access state without reloading
+            checkAIAccess();
+          }}
         />
       )}
       
