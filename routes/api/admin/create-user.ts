@@ -7,7 +7,7 @@ export const handler: Handlers = {
   async POST(req, ctx) {
     try {
       // 1. Check admin auth
-      const sessionId = ctx.state.sessionId;
+      const sessionId = (ctx.state as any).sessionId as string | undefined;
       if (!sessionId) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,

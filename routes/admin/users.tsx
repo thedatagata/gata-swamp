@@ -8,7 +8,7 @@ interface AdminData {
 
 export const handler: Handlers<AdminData> = {
   async GET(req, ctx) {
-    const sessionId = ctx.state.sessionId;
+    const sessionId = (ctx.state as any).sessionId as string | undefined;
     
     if (!sessionId) {
       return new Response("", {
