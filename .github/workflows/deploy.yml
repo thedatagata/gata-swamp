@@ -42,22 +42,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=latest
-            type=sha
-
       - name: Create LaunchDarkly deployment event
         # Only run if LD token is present
         if: env.LAUNCHDARKLY_ACCESS_TOKEN != ''
@@ -82,19 +66,11 @@ jobs:
         env:
           LAUNCHDARKLY_ACCESS_TOKEN: ${{ secrets.LAUNCHDARKLY_ACCESS_TOKEN }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
       - name: Trigger Render Deploy
         if: success()
         run: |
-          # Trigger deploy with the specific image SHA to ensure consistency
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}&imgURL=ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          # Trigger Render to build and deploy the latest commit
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
 
       - name: Update LaunchDarkly deployment status
         if: always() && env.LAUNCHDARKLY_ACCESS_TOKEN != ''
