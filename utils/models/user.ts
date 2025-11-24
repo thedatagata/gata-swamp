@@ -81,3 +81,22 @@ export async function updateUser(username: string, updates: Partial<Pick<User, "
   
   console.log(`💾 Updated user: ${username}`, updates);
 }
+
+export async function listAllUsers(): Promise<User[]> {
+  const kv = await getKv();
+  const users: User[] = [];
+  
+  const entries = kv.list<User>({ prefix: ["users"] });
+  for await (const entry of entries) {
+    users.push(entry.value);
+  }
+  
+  return users;
+}
+
+export async function deleteUser(username: string): Promise<void> {
+  const kv = await getKv();
+  await kv.delete(["users", username]);
+  console.log(`🗑️ Deleted user: ${username}`);
+}
+
