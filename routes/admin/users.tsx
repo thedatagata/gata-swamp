@@ -1,5 +1,5 @@
 import { PageProps, Handlers } from "$fresh/server.ts";
-import { getSession } from "../../../utils/models/session.ts";
+import { getSession } from "../../utils/models/session.ts";
 
 interface AdminData {
   isAdmin: boolean;
