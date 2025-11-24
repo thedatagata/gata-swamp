@@ -32,7 +32,7 @@ export const handler: Handlers = {
       }
 
       // 2. Get request data
-      const { email, tempPassword } = await req.json();
+      const { email, tempPassword, modelTier } = await req.json();
 
       if (!email || !tempPassword) {
         return new Response(JSON.stringify({ error: "Email and password required" }), {
@@ -40,6 +40,9 @@ export const handler: Handlers = {
           headers: { "Content-Type": "application/json" },
         });
       }
+
+      // Validate modelTier
+      const tier = (modelTier === "7b" ? "7b" : "3b") as "3b" | "7b";
 
       // 3. Check if user already exists
       const existing = await getUser(email);
@@ -59,7 +62,8 @@ export const handler: Handlers = {
         hash,
         "free", // Default to free tier
         false,  // No AI addon
-        false   // No analyst addon
+        false,  // No analyst addon
+        tier    // Model tier from admin selection
       );
 
       return new Response(

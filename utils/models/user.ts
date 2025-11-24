@@ -6,6 +6,7 @@ export interface User {
   plan_tier: "free" | "premium";
   ai_addon_unlocked: boolean;
   ai_analyst_unlocked: boolean;
+  preferred_model_tier?: "3b" | "7b";
   motherDuckToken?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -16,7 +17,8 @@ export async function createUser(
   passwordHash: string, 
   plan_tier: "free" | "premium" = "free",
   ai_addon_unlocked = false,
-  ai_analyst_unlocked = false
+  ai_analyst_unlocked = false,
+  preferred_model_tier: "3b" | "7b" = "3b"
 ): Promise<User> {
   const kv = await getKv();
   const key = ["users", username];
@@ -27,6 +29,7 @@ export async function createUser(
     plan_tier,
     ai_addon_unlocked,
     ai_analyst_unlocked,
+    preferred_model_tier,
     createdAt: new Date(),
     updatedAt: new Date()
   };

@@ -78,6 +78,17 @@ export default function AdminUsersPage({ data }: PageProps<AdminData>) {
                 />
                 <p class="text-xs text-[#F8F6F0]/50 mt-1">User will need to use this to log in</p>
               </div>
+              <div>
+                <label class="block text-sm text-[#F8F6F0]/80 mb-1">AI Model Tier</label>
+                <select 
+                  name="modelTier"
+                  class="w-full p-3 bg-[#172217] border border-[#90C137]/30 rounded-lg text-[#F8F6F0] focus:border-[#90C137] outline-none"
+                >
+                  <option value="3b">3B Model (Default)</option>
+                  <option value="7b">7B Model (More Powerful)</option>
+                </select>
+                <p class="text-xs text-[#F8F6F0]/50 mt-1">Assign users to different models for experimentation</p>
+              </div>
               <button 
                 type="submit"
                 class="w-full py-3 bg-[#90C137] text-[#172217] rounded-lg font-bold hover:bg-[#a0d147] transition-colors"
@@ -107,6 +118,7 @@ export default function AdminUsersPage({ data }: PageProps<AdminData>) {
           const formData = new FormData(form);
           const email = formData.get('email');
           const tempPassword = formData.get('tempPassword');
+          const modelTier = formData.get('modelTier');
           
           const messageDiv = document.getElementById('create-message');
           messageDiv.classList.remove('hidden');
@@ -118,7 +130,7 @@ export default function AdminUsersPage({ data }: PageProps<AdminData>) {
             const res = await fetch('/api/admin/create-user', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, tempPassword })
+              body: JSON.stringify({ email, tempPassword, modelTier })
             });
             
             const data = await res.json();

@@ -2,6 +2,7 @@
 import { PageProps, Handlers } from "$fresh/server.ts";
 import DashboardRouter from "../../islands/onboarding/DashboardRouter.tsx";
 import { getSession } from "../../utils/models/session.ts";
+import { getUser } from "../../utils/models/user.ts";
 import { getVariation } from "../../utils/launchdarkly/server.ts";
 import { FLAGS } from "../../utils/launchdarkly/flags.ts";
 import { buildUserContext } from "../../utils/launchdarkly/context-builder.ts";
@@ -15,8 +16,8 @@ interface DashboardData {
 }
 
 export const handler: Handlers<DashboardData> = {
-  async GET(req, ctx) {
-    const sessionId = ctx.state.sessionId;
+  async GET(_req, ctx) {
+    const sessionId = (ctx.state as any).sessionId as string | undefined;
     
     // 1. Check Authentication
     if (!sessionId) {
@@ -35,8 +36,12 @@ export const handler: Handlers<DashboardData> = {
       });
     }
 
-    // 2. Check Allowlist via LaunchDarkly
-    const context = buildUserContext(session.username);
+    // 2. Get full user record for model tier preference
+    const user = await getUser(session.username);
+    const preferredModelTier = user?.preferred_model_tier || "3b";
+
+    // 3. Check Allowlist via LaunchDarkly
+    const context = buildUserContext(session.username, preferredModelTier);
     const isAllowed = await getVariation(context, FLAGS.DEMO_ACCESS_ALLOWLIST, false);
 
     const motherDuckToken = Deno.env.get("MOTHERDUCK_TOKEN") || "";

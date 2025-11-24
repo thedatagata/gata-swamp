@@ -18,6 +18,7 @@ export interface UserContext {
     role: "viewer" | "analyst" | "admin";
     companySize?: "solo" | "small" | "medium" | "enterprise";
     industry?: string;
+    preferredModelTier?: "3b" | "7b";
     
     // Technical context
     preferredModel?: string;
@@ -67,7 +68,7 @@ export function buildMultiContext(
 /**
  * Simple user context builder for initial LaunchDarkly routing
  */
-export function buildUserContext(email: string): UserContext {
+export function buildUserContext(email: string, preferredModelTier: "3b" | "7b" = "3b"): UserContext {
   return {
     kind: "user",
     key: email,
@@ -77,7 +78,8 @@ export function buildUserContext(email: string): UserContext {
       queriesExecuted: 0,
       dashboardsCreated: 0,
       lastActiveDate: new Date().toISOString(),
-      role: "viewer"
+      role: "viewer",
+      preferredModelTier: preferredModelTier
     }
   };
 }

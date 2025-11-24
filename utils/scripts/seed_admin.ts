@@ -30,7 +30,8 @@ export default async function seedAdmin() {
     hash,
     "premium", // Give admin premium access
     true,      // Unlock AI
-    true       // Unlock Analyst
+    true,      // Unlock Analyst
+    "7b"       // Give admin the powerful model
   );
 
   console.log(`✅ Admin user created!`);
