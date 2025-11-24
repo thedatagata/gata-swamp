@@ -6,11 +6,11 @@ WORKDIR /app
 # Copy dependency files first for better caching
 COPY deno.json deno.lock* ./
 
-# Cache the dependencies
-RUN deno install --entrypoint main.ts
-
 # Copy the rest of the application
 COPY . .
+
+# Cache the dependencies and compile main.ts
+RUN deno install --entrypoint main.ts
 
 # Create db directory with proper permissions
 RUN mkdir -p /app/db && chmod 755 /app/db
