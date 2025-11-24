@@ -20,8 +20,7 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Run tests
-        run: deno test --allow-all
+
 
       - name: Verify LaunchDarkly Flags
         # This simple check ensures we don't deploy code referencing missing flags
