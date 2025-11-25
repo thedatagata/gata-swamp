@@ -100,6 +100,26 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
     // The textarea is already functional
   }
 
+  async function checkUsageLimit(): Promise<boolean> {
+    try {
+      const res = await fetch('/api/demo/usage', { method: 'POST' });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        if (res.status === 403) {
+          setError(`🚫 Demo limit reached (${data.usage}/${data.limit} queries). Please contact admin for more access.`);
+          return false;
+        }
+        throw new Error(data.error || "Failed to check usage");
+      }
+      return true;
+    } catch (err) {
+      console.error("Usage check failed:", err);
+      setError("Unable to verify usage limit. Please try again.");
+      return false;
+    }
+  }
+
   async function handleGenerateSQLFromPrompt() {
     if (!client || !naturalLanguagePrompt.trim()) return;
     
@@ -111,6 +131,9 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
       setUpgradeModalConfig({ show: true, feature: "ai_query_access", upgradeType: "feature" });
       return;
     }
+
+    // Check usage limit before proceeding
+    if (!(await checkUsageLimit())) return;
     
     setLoading(true);
     setError(null);
@@ -158,6 +181,9 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgr
     if (!client || !sqlQuery.trim()) {
       return;
     }
+
+    // Check usage limit before proceeding
+    if (!(await checkUsageLimit())) return;
     
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🎯 EXECUTING QUERY');

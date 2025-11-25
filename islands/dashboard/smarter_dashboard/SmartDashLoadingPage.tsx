@@ -27,6 +27,35 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
   useEffect(() => {
     async function initialize() {
       try {
+        // Step 0: Check Usage Limit
+        setLoading({
+          step: "duckdb",
+          progress: 5,
+          message: "Verifying access...",
+        });
+
+        try {
+          const usageRes = await fetch('/api/demo/usage', { method: 'POST' });
+          const usageData = await usageRes.json();
+          
+          if (!usageRes.ok) {
+             if (usageRes.status === 403) {
+               throw new Error(`Demo limit reached (${usageData.usage}/${usageData.limit} loads). Contact admin.`);
+             }
+             // If 401, it means not a demo user, so we proceed (unlimited)
+             if (usageRes.status !== 401) {
+                console.warn("Usage check warning:", usageData);
+             }
+          }
+        } catch (err) {
+          // If it's the limit error, rethrow
+          if (err instanceof Error && err.message.includes("Demo limit")) {
+            throw err;
+          }
+          // Otherwise log and proceed (fail open for network errors to avoid blocking valid users)
+          console.error("Usage check failed, proceeding:", err);
+        }
+
         // Step 1: Initialize MotherDuck connection
         setLoading({
           step: "duckdb",
@@ -147,7 +176,7 @@ export default function SmartDashLoadingPage({ onComplete, motherDuckToken }: Lo
         setLoading({
           step: "duckdb",
           progress: 0,
-          message: `Error: ${error.message}`,
+          message: `Error: ${(error as Error).message}`,
         });
       }
     }

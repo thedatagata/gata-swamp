@@ -22,6 +22,7 @@ export const FLAGS = {
   
   // Access Control
   DEMO_ACCESS_ALLOWLIST: "demo-access-allowlist",
+  DEMO_QUERY_LIMIT: "demo-query-limit",
 } as const;
 
 // Type for flag values to ensure type safety
@@ -33,4 +34,5 @@ export interface FlagValues {
   [FLAGS.QUERY_PERSISTENCE]: boolean;
   [FLAGS.DATA_LIMIT]: number;
   [FLAGS.DEMO_ACCESS_ALLOWLIST]: boolean;
+  [FLAGS.DEMO_QUERY_LIMIT]: number;
 }
