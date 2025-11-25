@@ -11,6 +11,7 @@ interface QuerySpec {
   dimensions?: string[];  // Array of dimension ALIASES
   measures?: string[];    // Array of measure ALIASES
   filters?: string[];
+  orderBy?: string[];     // Array of columns to order by
   limit?: number;
 }
 
@@ -47,6 +48,7 @@ export class SemanticReportObj {
       FROM ${this.metadata.table}
       ${allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : ""}
       ${opts.dimensions?.length ? `GROUP BY ${opts.dimensions.map((_, i) => i + 1).join(", ")}` : ""}
+      ${opts.orderBy?.length ? `ORDER BY ${opts.orderBy.join(", ")}` : ""}
       ${opts.limit ? `LIMIT ${opts.limit}` : ""}
     `.trim();
 
@@ -150,6 +152,7 @@ export class SemanticReportObj {
       FROM ${this.metadata.table}
       ${allFilters.length ? `WHERE ${allFilters.join(" AND ")}` : ""}
       ${opts.dimensions?.length ? `GROUP BY ${opts.dimensions.map((_, i) => i + 1).join(", ")}` : ""}
+      ${opts.orderBy?.length ? `ORDER BY ${opts.orderBy.join(", ")}` : ""}
       ${opts.limit ? `LIMIT ${opts.limit}` : ""}
     `.trim();
   }

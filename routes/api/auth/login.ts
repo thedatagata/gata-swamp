@@ -18,6 +18,7 @@ export const handler: Handlers = {
       // Get user
       const user = await getUser(username);
       if (!user) {
+        console.log(`❌ Login failed: User '${username}' not found.`);
         return new Response(JSON.stringify({ error: "Invalid credentials" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },
@@ -27,6 +28,7 @@ export const handler: Handlers = {
       // Verify password
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) {
+        console.log(`❌ Login failed: Password mismatch for user '${username}'.`);
         return new Response(JSON.stringify({ error: "Invalid credentials" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },

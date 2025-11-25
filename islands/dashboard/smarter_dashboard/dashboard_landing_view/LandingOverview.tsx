@@ -1,12 +1,17 @@
 // islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx
-// islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx
 import { useEffect, useState } from "preact/hooks";
 import KPICard from "../../../../components/charts/KPICard.tsx";
 import { getSemanticMetadata } from "../../../../utils/smarter/dashboard_utils/semantic-config.ts";
 import { getSessionsKPIs, getUsersKPIs } from "../../../../utils/smarter/overview_dashboards/kpi-queries.ts";
-import { getLDClient } from "../../../../utils/launchdarkly/client.ts";
+import { getLDClient, subscribeToFlagChanges, unsubscribeFromFlagChanges } from "../../../../utils/launchdarkly/client.ts";
 import { trackView, trackInteraction, trackPerformance } from "../../../../utils/launchdarkly/events.ts";
 import UpgradeModal from "../../../../components/UpgradeModal.tsx";
+import CacheManagementModal from "../CacheManagementModal.tsx";
+import SessionDetailsDashboard from "./SessionDetailsDashboard.tsx";
+import UserDetailsDashboard from "./UserDetailsDashboard.tsx";
+import AutoVisualizationExperience from "../semantic_dashboard/AutoVisualizationExperience.tsx";
+
+// --- Helper Functions ---
 
 function getSessionId(): string {
   if (typeof sessionStorage === "undefined") return "server-session";
@@ -38,13 +43,28 @@ function sanitizeQueryData(data: any[]): any[] {
   });
 }
 
+// --- Types ---
+
+type ViewType = "overview" | "sessions" | "users" | "autoviz";
+
 interface LandingOverviewProps {
   db: any;
   webllmEngine: any;
-  onSelectTable: (table: "sessions" | "users") => void;
+  aiAnalystUnlocked: boolean;
+  // onSelectTable is no longer needed as a prop for the container, but kept for compatibility if needed
+  onSelectTable?: (table: "sessions" | "users") => void; 
 }
 
-export default function LandingOverview({ db, webllmEngine, onSelectTable }: LandingOverviewProps) {
+interface OverviewContentProps {
+  db: any;
+  webllmEngine: any;
+  onSelectTable: (table: "sessions" | "users") => void;
+  aiAnalystUnlocked: boolean;
+}
+
+// --- Inner Component: OverviewContent (Original LandingOverview Logic) ---
+
+function OverviewContent({ db, webllmEngine, onSelectTable, aiAnalystUnlocked }: OverviewContentProps) {
   const [loading, setLoading] = useState(true);
   const [sessionsKPI, setSessionsKPI] = useState<any>({});
   const [usersKPI, setUsersKPI] = useState<any>({});
@@ -55,13 +75,16 @@ export default function LandingOverview({ db, webllmEngine, onSelectTable }: Lan
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
-    // Check AI analyst access flag
+    // Check AI analyst access flag OR user unlocked status
     const client = getLDClient();
+    let aiAccess = aiAnalystUnlocked;
+    
     if (client) {
-      const aiAccess = client.variation("smarter-ai-analyst-access", false);
-      setHasAIAnalyst(aiAccess);
+      // If unlocked via add-on, it's true. Otherwise check LD flag.
+      const flagAccess = client.variation("smarter-ai-analyst-access", false);
+      aiAccess = aiAccess || flagAccess;
       
-      // Track view of analyst feature gate
+      // Track view of analyst feature gate if not accessible
       if (!aiAccess) {
         trackView("gate", "feature_gate", "LandingOverview", {
           plan: "smarter",
@@ -70,7 +93,9 @@ export default function LandingOverview({ db, webllmEngine, onSelectTable }: Lan
         });
       }
     }
-  }, []);
+    
+    setHasAIAnalyst(aiAccess);
+  }, [aiAnalystUnlocked]);
 
   useEffect(() => {
     async function loadOverview() {
@@ -93,7 +118,7 @@ export default function LandingOverview({ db, webllmEngine, onSelectTable }: Lan
         }
       } catch (err) {
         console.error("Overview load error:", err);
-        setError(err.message);
+        setError((err as Error).message);
       } finally {
         setLoading(false);
       }
@@ -116,15 +141,12 @@ export default function LandingOverview({ db, webllmEngine, onSelectTable }: Lan
     try {
       // Extract KPI values from direct query results
       const revCurrent = sessionsData.revenue_last_30d || 0;
-      const revPrevious = sessionsData.revenue_previous_30d || 0;
       const revGrowth = sessionsData.revenue_growth_rate || 0;
       
       const sessCurrent = sessionsData.sessions_last_30d || 0;
-      const sessPrevious = sessionsData.sessions_previous_30d || 0;
       const sessGrowth = sessionsData.sessions_growth_rate || 0;
       
       const convCurrent = sessionsData.conversion_rate_last_30d || 0;
-      const convPrevious = sessionsData.conversion_rate_previous_30d || 0;
       const convChange = sessionsData.conversion_rate_change || 0;
       
       const ltv = usersData.total_ltv || 0;
@@ -164,8 +186,8 @@ Keep it concise and actionable.`;
       // Track error
       trackPerformance("error", "ai_analysis", "LandingOverview", {
         plan: "smarter",
-        errorType: error.name,
-        errorMessage: error.message,
+        errorType: (error as Error).name,
+        errorMessage: (error as Error).message,
         success: false
       });
     } finally {
@@ -261,6 +283,7 @@ Keep it concise and actionable.`;
           </h2>
           {hasAIAnalyst ? (
             <button
+              type="button"
               onClick={handleAnalystClick}
               disabled={insightsLoading || !webllmEngine}
               class="px-4 py-2 bg-gata-green/20 text-gata-green rounded-lg hover:bg-gata-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
@@ -269,6 +292,7 @@ Keep it concise and actionable.`;
             </button>
           ) : (
             <button
+              type="button"
               onClick={handleAnalystClick}
               class="px-4 py-2 bg-gata-dark border-2 border-gata-green/50 text-gata-cream rounded-lg hover:bg-gata-green/10 transition-colors font-medium flex items-center gap-2"
             >
@@ -287,6 +311,7 @@ Keep it concise and actionable.`;
               Get automated insights, pattern detection, and actionable recommendations
             </p>
             <button
+              type="button"
               onClick={handleAnalystClick}
               class="px-6 py-2 bg-gradient-to-r from-gata-green to-[#a0d147] text-gata-dark font-bold rounded-lg hover:opacity-90 transition-opacity"
             >
@@ -328,6 +353,7 @@ Keep it concise and actionable.`;
               <p class="text-gata-cream/70 text-sm mt-1">{sessionsConfig.description}</p>
             </div>
             <button
+              type="button"
               onClick={() => onSelectTable("sessions")}
               class="bg-gata-green text-gata-dark px-6 py-3 rounded-lg font-semibold hover:bg-[#a0d147] transition-all shadow-md hover:shadow-lg"
             >
@@ -381,6 +407,7 @@ Keep it concise and actionable.`;
               <p class="text-gata-cream/70 text-sm mt-1">{usersConfig.description}</p>
             </div>
             <button
+              type="button"
               onClick={() => onSelectTable("users")}
               class="bg-gata-green text-gata-dark px-6 py-3 rounded-lg font-semibold hover:bg-[#a0d147] transition-all shadow-md hover:shadow-lg"
             >
@@ -423,6 +450,169 @@ Keep it concise and actionable.`;
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// --- Main Container Component (Formerly LandingPageDashboard) ---
+
+export default function LandingOverview({ db, webllmEngine, aiAnalystUnlocked }: LandingOverviewProps) {
+  const [currentView, setCurrentView] = useState<ViewType>("overview");
+  const [querySpec, setQuerySpec] = useState<any>(null);
+  const [showCacheModal, setShowCacheModal] = useState(false);
+  const [cacheError, setCacheError] = useState<string | null>(null);
+  const [cacheFeatureEnabled, setCacheFeatureEnabled] = useState(false);
+
+  // Flag 3: Cache Management Feature Flag
+  useEffect(() => {
+    const ldClient = getLDClient();
+    if (ldClient) {
+      const enabled = ldClient.variation("cache-management-enabled", false);
+      setCacheFeatureEnabled(enabled);
+      
+      // Listen for kill switch activation
+      const flagHandler = (newValue: boolean) => {
+        setCacheFeatureEnabled(newValue);
+        if (!newValue && showCacheModal) {
+          setShowCacheModal(false);
+          setCacheError("Cache management temporarily unavailable");
+        }
+      };
+      
+      subscribeToFlagChanges("cache-management-enabled", flagHandler);
+      return () => unsubscribeFromFlagChanges("cache-management-enabled", flagHandler);
+    }
+  }, [showCacheModal]);
+
+  const handleExecuteQuery = (spec: any) => {
+    setQuerySpec(spec);
+    setCurrentView("autoviz");
+  };
+
+  return (
+    <div class="min-h-screen bg-gradient-to-br from-gata-dark to-[#186018]">
+      <nav class="fixed w-full z-50 bg-gata-dark/95 backdrop-blur-sm shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex justify-between items-center py-4">
+            <div
+              onClick={() => setCurrentView("overview")}
+              class="cursor-pointer"
+            >
+              <h1 class="text-xl font-bold text-gata-cream">
+                DATA_<span class="text-gata-green">GATA</span> Analytics
+              </h1>
+            </div>
+
+            <div class="flex items-center space-x-4">
+              {/* Cache Management Button - Flag 3 */}
+              {cacheFeatureEnabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    trackInteraction("click", "cache_button", "cache_management", "LandingPageDashboard", {
+                      plan: "smarter"
+                    });
+                    setShowCacheModal(true);
+                  }}
+                  class="px-3 py-1.5 bg-gata-dark/60 text-gata-cream border border-gata-green/30 rounded hover:bg-gata-dark/80 transition-colors text-sm flex items-center gap-2"
+                >
+                  <span>💾</span>
+                  <span>Cache</span>
+                </button>
+              )}
+
+              <div class="flex items-center space-x-2 text-sm text-gata-green">
+                <span class="w-2 h-2 bg-gata-green rounded-full"></span>
+                <span>AI Ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main class="pt-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Cache Error Banner */}
+        {cacheError && (
+          <div class="bg-amber-950/30 border border-amber-400/50 rounded-lg p-4 mb-6">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-sm font-semibold text-amber-200 mb-2">⚠️ Cache Limit Reached</p>
+                <p class="text-sm text-amber-200/80">{cacheError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCacheError(null)}
+                class="text-amber-200/60 hover:text-amber-200"
+              >
+                ✕
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCacheModal(true)}
+              class="mt-3 px-4 py-2 bg-amber-600/20 text-amber-200 border border-amber-600/50 rounded hover:bg-amber-600/30 transition-colors text-sm"
+            >
+              Manage Cache
+            </button>
+          </div>
+        )}
+
+        {currentView === "overview" && (
+          <OverviewContent
+            db={db}
+            webllmEngine={webllmEngine}
+            onSelectTable={(table) => setCurrentView(table)}
+            aiAnalystUnlocked={aiAnalystUnlocked}
+          />
+        )}
+
+        {currentView === "sessions" && (
+          <SessionDetailsDashboard
+            db={db}
+            webllmEngine={webllmEngine}
+            onBack={() => setCurrentView("overview")}
+            onExecuteQuery={handleExecuteQuery}
+          />
+        )}
+
+        {currentView === "users" && (
+          <UserDetailsDashboard
+            db={db}
+            webllmEngine={webllmEngine}
+            onBack={() => setCurrentView("overview")}
+            onExecuteQuery={handleExecuteQuery}
+          />
+        )}
+
+        {currentView === "autoviz" && querySpec && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setCurrentView(querySpec.table === "sessions" ? "sessions" : "users")}
+              class="text-gata-green hover:text-[#a0d147] font-medium mb-4 flex items-center"
+            >
+              ← Back to Dashboard
+            </button>
+            <AutoVisualizationExperience
+              db={db}
+              querySpec={querySpec}
+            />
+          </div>
+        )}
+      </main>
+
+      {/* Cache Management Modal */}
+      <CacheManagementModal
+        isOpen={showCacheModal}
+        onClose={() => {
+          setShowCacheModal(false);
+          setCacheError(null);
+        }}
+        onCacheCleared={() => {
+          setCacheError(null);
+          // Optionally refresh your data here
+        }}
+      />
     </div>
   );
 }

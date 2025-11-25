@@ -5,14 +5,19 @@
 import * as $_404 from "./routes/_404.tsx";
 import * as $_app from "./routes/_app.tsx";
 import * as $_middleware from "./routes/_middleware.ts";
+import * as $admin_login from "./routes/admin/login.tsx";
 import * as $admin_users from "./routes/admin/users.tsx";
 import * as $api_admin_create_user from "./routes/api/admin/create-user.ts";
 import * as $api_admin_delete_user from "./routes/api/admin/delete-user.ts";
+import * as $api_admin_demo_users from "./routes/api/admin/demo-users.ts";
 import * as $api_admin_list_users from "./routes/api/admin/list-users.ts";
 import * as $api_auth_login from "./routes/api/auth/login.ts";
 import * as $api_auth_logout from "./routes/api/auth/logout.ts";
 import * as $api_auth_me from "./routes/api/auth/me.ts";
 import * as $api_auth_signup from "./routes/api/auth/signup.ts";
+import * as $api_demo_access from "./routes/api/demo/access.ts";
+import * as $api_demo_check_email from "./routes/api/demo/check-email.ts";
+import * as $api_demo_create_account from "./routes/api/demo/create-account.ts";
 import * as $api_mock_checkout from "./routes/api/mock-checkout.ts";
 import * as $api_motherduck_token from "./routes/api/motherduck-token.ts";
 import * as $api_onboarding_complete from "./routes/api/onboarding/complete.ts";
@@ -23,10 +28,13 @@ import * as $app_index from "./routes/app/index.tsx";
 import * as $app_loading from "./routes/app/loading.tsx";
 import * as $auth_signin from "./routes/auth/signin.tsx";
 import * as $checkout from "./routes/checkout.tsx";
+import * as $demo_setup from "./routes/demo/setup.tsx";
 import * as $health from "./routes/health.ts";
 import * as $index from "./routes/index.tsx";
 import * as $ContextSwitcher from "./islands/ContextSwitcher.tsx";
 import * as $HeroFeature from "./islands/HeroFeature.tsx";
+import * as $admin_AdminLogin from "./islands/admin/AdminLogin.tsx";
+import * as $admin_DemoUserManagement from "./islands/admin/DemoUserManagement.tsx";
 import * as $app_utils_ScrollToTop from "./islands/app_utils/ScrollToTop.tsx";
 import * as $auth_AuthModal from "./islands/auth/AuthModal.tsx";
 import * as $auth_LoginFlow from "./islands/auth/LoginFlow.tsx";
@@ -35,7 +43,6 @@ import * as $charts_FunnelChart from "./islands/charts/FunnelChart.tsx";
 import * as $dashboard_smarter_dashboard_CacheManagementModal from "./islands/dashboard/smarter_dashboard/CacheManagementModal.tsx";
 import * as $dashboard_smarter_dashboard_SmartDashLoadingPage from "./islands/dashboard/smarter_dashboard/SmartDashLoadingPage.tsx";
 import * as $dashboard_smarter_dashboard_dashboard_landing_view_LandingOverview from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx";
-import * as $dashboard_smarter_dashboard_dashboard_landing_view_LandingPageDashboard from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingPageDashboard.tsx";
 import * as $dashboard_smarter_dashboard_dashboard_landing_view_SessionDetailsDashboard from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/SessionDetailsDashboard.tsx";
 import * as $dashboard_smarter_dashboard_dashboard_landing_view_UserDetailsDashboard from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/UserDetailsDashboard.tsx";
 import * as $dashboard_smarter_dashboard_semantic_dashboard_AutoVisualizationExperience from "./islands/dashboard/smarter_dashboard/semantic_dashboard/AutoVisualizationExperience.tsx";
@@ -44,6 +51,7 @@ import * as $dashboard_starter_dashboard_BaseDashboardWizard from "./islands/das
 import * as $dashboard_starter_dashboard_FieldCatalog from "./islands/dashboard/starter_dashboard/FieldCatalog.tsx";
 import * as $dashboard_starter_dashboard_WebDataRocksPivot from "./islands/dashboard/starter_dashboard/WebDataRocksPivot.tsx";
 import * as $dashboard_starter_dashboard_data_utils from "./islands/dashboard/starter_dashboard/data-utils.ts";
+import * as $demo_DemoSetup from "./islands/demo/DemoSetup.tsx";
 import * as $onboarding_DashboardRouter from "./islands/onboarding/DashboardRouter.tsx";
 import * as $onboarding_PlanSelection from "./islands/onboarding/PlanSelection.tsx";
 import * as $onboarding_SignupFlow from "./islands/onboarding/SignupFlow.tsx";
@@ -54,14 +62,19 @@ const manifest = {
     "./routes/_404.tsx": $_404,
     "./routes/_app.tsx": $_app,
     "./routes/_middleware.ts": $_middleware,
+    "./routes/admin/login.tsx": $admin_login,
     "./routes/admin/users.tsx": $admin_users,
     "./routes/api/admin/create-user.ts": $api_admin_create_user,
     "./routes/api/admin/delete-user.ts": $api_admin_delete_user,
+    "./routes/api/admin/demo-users.ts": $api_admin_demo_users,
     "./routes/api/admin/list-users.ts": $api_admin_list_users,
     "./routes/api/auth/login.ts": $api_auth_login,
     "./routes/api/auth/logout.ts": $api_auth_logout,
     "./routes/api/auth/me.ts": $api_auth_me,
     "./routes/api/auth/signup.ts": $api_auth_signup,
+    "./routes/api/demo/access.ts": $api_demo_access,
+    "./routes/api/demo/check-email.ts": $api_demo_check_email,
+    "./routes/api/demo/create-account.ts": $api_demo_create_account,
     "./routes/api/mock-checkout.ts": $api_mock_checkout,
     "./routes/api/motherduck-token.ts": $api_motherduck_token,
     "./routes/api/onboarding/complete.ts": $api_onboarding_complete,
@@ -72,12 +85,15 @@ const manifest = {
     "./routes/app/loading.tsx": $app_loading,
     "./routes/auth/signin.tsx": $auth_signin,
     "./routes/checkout.tsx": $checkout,
+    "./routes/demo/setup.tsx": $demo_setup,
     "./routes/health.ts": $health,
     "./routes/index.tsx": $index,
   },
   islands: {
     "./islands/ContextSwitcher.tsx": $ContextSwitcher,
     "./islands/HeroFeature.tsx": $HeroFeature,
+    "./islands/admin/AdminLogin.tsx": $admin_AdminLogin,
+    "./islands/admin/DemoUserManagement.tsx": $admin_DemoUserManagement,
     "./islands/app_utils/ScrollToTop.tsx": $app_utils_ScrollToTop,
     "./islands/auth/AuthModal.tsx": $auth_AuthModal,
     "./islands/auth/LoginFlow.tsx": $auth_LoginFlow,
@@ -89,8 +105,6 @@ const manifest = {
       $dashboard_smarter_dashboard_SmartDashLoadingPage,
     "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx":
       $dashboard_smarter_dashboard_dashboard_landing_view_LandingOverview,
-    "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingPageDashboard.tsx":
-      $dashboard_smarter_dashboard_dashboard_landing_view_LandingPageDashboard,
     "./islands/dashboard/smarter_dashboard/dashboard_landing_view/SessionDetailsDashboard.tsx":
       $dashboard_smarter_dashboard_dashboard_landing_view_SessionDetailsDashboard,
     "./islands/dashboard/smarter_dashboard/dashboard_landing_view/UserDetailsDashboard.tsx":
@@ -106,6 +120,7 @@ const manifest = {
     "./islands/dashboard/starter_dashboard/WebDataRocksPivot.tsx":
       $dashboard_starter_dashboard_WebDataRocksPivot,
     "./islands/dashboard/starter_dashboard/data-utils.ts": $dashboard_starter_dashboard_data_utils,
+    "./islands/demo/DemoSetup.tsx": $demo_DemoSetup,
     "./islands/onboarding/DashboardRouter.tsx": $onboarding_DashboardRouter,
     "./islands/onboarding/PlanSelection.tsx": $onboarding_PlanSelection,
     "./islands/onboarding/SignupFlow.tsx": $onboarding_SignupFlow,

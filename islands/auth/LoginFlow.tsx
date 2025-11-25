@@ -44,7 +44,7 @@ export default function LoginFlow() {
       const res = await fetch('/api/demo/access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: demoEmail })
+        body: JSON.stringify({ email: demoEmail, password: credentials.password })
       });
 
       if (res.ok) {
@@ -121,8 +121,19 @@ export default function LoginFlow() {
                 onInput={(e) => setDemoEmail((e.target as HTMLInputElement).value)}
                 class="w-full p-3 bg-[#172217] border border-[#90C137]/30 rounded-lg text-[#F8F6F0] focus:border-[#90C137] outline-none"
               />
+            </div>
+            <div>
+              <label class="block text-sm text-[#F8F6F0]/80 mb-1">Access Code</label>
+              <input 
+                type="password" 
+                required 
+                placeholder="Enter provided access code"
+                value={credentials.password} // Reusing credentials.password for simplicity or create new state
+                onInput={(e) => setCredentials({...credentials, password: (e.target as HTMLInputElement).value})}
+                class="w-full p-3 bg-[#172217] border border-[#90C137]/30 rounded-lg text-[#F8F6F0] focus:border-[#90C137] outline-none"
+              />
               <p class="text-xs text-[#F8F6F0]/40 mt-1">
-                Enter your email to verify demo access permissions.
+                Enter your email and access code to verify permissions.
               </p>
             </div>
             

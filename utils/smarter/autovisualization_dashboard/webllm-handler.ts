@@ -1,4 +1,5 @@
 // utils/smarter/autovisualization_dashboard/webllm-handler.ts
+import { createQueryAnalyzer } from "../dashboard_utils/query-response-analyzer.ts";
 import { CreateMLCEngine } from "@mlc-ai/web-llm";
 import { getSemanticMetadata, generateSQLPrompt } from "../dashboard_utils/semantic-config.ts";
 import { createQueryValidator } from "../dashboard_utils/semantic-query-validator.ts";
@@ -124,6 +125,34 @@ export class WebLLMSemanticHandler {
         const result = await this.generateSQLFromPrompt(userPrompt, preferredTable);
         sql = result.sql;
         table = result.table;
+
+        // Auto-fix: Ensure temporal dimensions are ordered
+        try {
+          const parsed = this.parseQueryForChart(sql);
+          const analyzer = createQueryAnalyzer(table);
+          // Analyze dimensions to find temporal ones
+          // We need to pass just the alias names to the analyzer
+          const dimAliases = parsed.dimensions.map(d => d.alias);
+          // Mock analyze call just to get categories
+          // We can access categorizeDimensions directly if we make it public, but analyze is fine
+          const analysis = analyzer.analyze({
+            dimensions: dimAliases,
+            measures: parsed.measures.map(m => m.alias)
+          });
+          
+          if (analysis.dimensionCategories.temporal.length > 0) {
+            // Check if ORDER BY exists
+            if (!sql.toUpperCase().includes("ORDER BY")) {
+              const temporalDim = analysis.dimensionCategories.temporal[0];
+              console.log(`⏱️ [WebLLM] Auto-appending ORDER BY for temporal dimension: ${temporalDim}`);
+              // Use the alias for ordering
+              sql += ` ORDER BY ${temporalDim} ASC`;
+            }
+          }
+        } catch (err) {
+          console.warn("⚠️ [WebLLM] Failed to auto-order SQL:", err);
+        }
+
       } else if (shouldValidate) {
         // Retry with correction prompt that includes original intent
         metrics.validationUsed = true;

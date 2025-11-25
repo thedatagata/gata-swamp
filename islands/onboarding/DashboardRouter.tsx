@@ -3,22 +3,27 @@ import { useState } from "preact/hooks";
 import PlanSelection from "../../islands/onboarding/PlanSelection.tsx";
 import BaseDashboard from "../dashboard/starter_dashboard/BaseDashboardWizard.tsx";
 import SmartDashLoadingPage from "../dashboard/smarter_dashboard/SmartDashLoadingPage.tsx";
-import LandingPageDashboard from "../dashboard/smarter_dashboard/dashboard_landing_view/LandingPageDashboard.tsx";
+import LandingOverview from "../dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx";
 
 interface DashboardRouterProps {
   motherDuckToken: string;
   sessionId: string;
   ldClientId?: string;
+  userPlan: "free" | "premium";
+  aiAnalystUnlocked: boolean;
+  aiAddonUnlocked: boolean;
 }
 
-export default function DashboardRouter({ motherDuckToken,sessionId, ldClientId }: DashboardRouterProps) {
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'smarter' | null>(null);
+export default function DashboardRouter({ motherDuckToken, sessionId, ldClientId, userPlan, aiAnalystUnlocked, aiAddonUnlocked }: DashboardRouterProps) {
+  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'smarter' | null>(
+    userPlan === 'premium' ? 'smarter' : 'starter'
+  );
   const [smartDashInitialized, setSmartDashInitialized] = useState(false);
-  const [db, setDb] = useState<any>(null);
-  const [webllmEngine, setWebllmEngine] = useState<any>(null);
+  const [db, setDb] = useState<unknown>(null);
+  const [webllmEngine, setWebllmEngine] = useState<unknown>(null);
 
   // Handle initialization complete callback
-  const handleSmartDashReady = (dbConnection: any, engine: any) => {
+  const handleSmartDashReady = (dbConnection: unknown, engine: unknown) => {
     setDb(dbConnection);
     setWebllmEngine(engine);
     setSmartDashInitialized(true);
@@ -56,6 +61,7 @@ export default function DashboardRouter({ motherDuckToken,sessionId, ldClientId 
               
               <div class="flex items-center space-x-4">
                 <button 
+                  type="button"
                   onClick={() => setSelectedPlan(null)}
                   class="text-[#F8F6F0]/90 hover:text-[#90C137] transition-colors text-sm font-medium"
                 >
@@ -71,6 +77,7 @@ export default function DashboardRouter({ motherDuckToken,sessionId, ldClientId 
             motherDuckToken={motherDuckToken}
             sessionId={sessionId}
             onUpgrade={handleUpgrade}
+            aiAddonUnlocked={aiAddonUnlocked}
           />
         </main>
       </div>
@@ -90,9 +97,10 @@ export default function DashboardRouter({ motherDuckToken,sessionId, ldClientId 
   return (
     <div class="min-h-screen bg-gradient-to-br from-gata-dark to-gata-darker">
       <main class="pt-0">
-        <LandingPageDashboard
+        <LandingOverview
           db={db}
           webllmEngine={webllmEngine}
+          aiAnalystUnlocked={aiAnalystUnlocked}
         />
       </main>
     </div>

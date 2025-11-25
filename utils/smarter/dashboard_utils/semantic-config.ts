@@ -3,7 +3,7 @@ import sessionsMetadataJson from "../../../static/smarter/semantic-sessions-meta
 import usersMetadataJson from "../../../static/smarter/semantic-users-metadata.json" with { type: "json" };
 
 // Type definitions for semantic metadata
-interface SemanticMetadata {
+export interface SemanticMetadata {
   table: string;
   description: string;
   fields: {
@@ -371,7 +371,8 @@ CRITICAL SQL RULES:
 3. Always use FROM ${metadata.table}
 4. Return alias names with AS: SELECT source_col AS alias_name
 5. Uint8Array fields (0/1) in WHERE need explicit comparison: WHERE field = 1, NOT WHERE field
-6. Output ONLY valid SQL - no markdown, no explanations, no truncation
+6. If selecting a temporal field (date/time) as a dimension, ALWAYS add ORDER BY that field ASC
+7. Output ONLY valid SQL - no markdown, no explanations, no truncation
 
 CORRECT PATTERN:
 User: "avg_sessions_per_user by customer_type"

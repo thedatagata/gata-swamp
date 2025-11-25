@@ -13,6 +13,9 @@ interface DashboardData {
   ldClientId?: string;
   isAllowed: boolean;
   email?: string;
+  userPlan: "free" | "premium";
+  aiAnalystUnlocked: boolean;
+  aiAddonUnlocked: boolean;
 }
 
 export const handler: Handlers<DashboardData> = {
@@ -41,7 +44,9 @@ export const handler: Handlers<DashboardData> = {
     const preferredModelTier = user?.preferred_model_tier || "3b";
 
     // 3. Check Allowlist via LaunchDarkly
-    const context = buildUserContext(session.username, preferredModelTier);
+    // If user has a linked demo email, use that for the allowlist check
+    const allowlistKey = user?.demoEmail || session.username;
+    const context = buildUserContext(allowlistKey, preferredModelTier);
     const isAllowed = await getVariation(context, FLAGS.DEMO_ACCESS_ALLOWLIST, false);
 
     const motherDuckToken = Deno.env.get("MOTHERDUCK_TOKEN") || "";
@@ -53,13 +58,16 @@ export const handler: Handlers<DashboardData> = {
       sessionId,
       ldClientId,
       isAllowed,
-      email: session.username
+      email: session.username,
+      userPlan: user?.plan_tier || "free",
+      aiAnalystUnlocked: user?.ai_analyst_unlocked || false,
+      aiAddonUnlocked: user?.ai_addon_unlocked || false
     });
   }
 };
 
 export default function DashboardPage({ data }: PageProps<DashboardData>) {
-  const { motherDuckToken, sessionId, ldClientId, isAllowed, email } = data;
+  const { motherDuckToken, sessionId, ldClientId, isAllowed, email, userPlan, aiAnalystUnlocked, aiAddonUnlocked } = data;
 
   // 1. Access Denied State
   if (!isAllowed) {
@@ -116,6 +124,9 @@ export default function DashboardPage({ data }: PageProps<DashboardData>) {
       motherDuckToken={motherDuckToken}
       sessionId={sessionId}
       ldClientId={ldClientId}
+      userPlan={userPlan}
+      aiAnalystUnlocked={aiAnalystUnlocked}
+      aiAddonUnlocked={aiAddonUnlocked}
     />
   );
 }

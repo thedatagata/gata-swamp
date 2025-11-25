@@ -1,5 +1,5 @@
 // utils/smarter/overview_dashboards/kpi-queries.ts
-import { createSemanticTables } from "../dashboard_utils/semantic-amplitude.ts";
+// import { createSemanticTables } from "../dashboard_utils/semantic-amplitude.ts";
 
 /**
  * Get Sessions KPIs with period-over-period comparison
@@ -10,32 +10,32 @@ export async function getSessionsKPIs(db: any) {
     WITH periods AS (
       SELECT
         -- New vs Returning (convert to percentage 0-100)
-        AVG(CASE WHEN session_date >= today() - INTERVAL '30 days' 
+        AVG(CASE WHEN session_date >= today() - INTERVAL '31 days' AND session_date < today()
           THEN is_returning_user * 100.0 END) as new_vs_returning_30d,
-        AVG(CASE WHEN session_date >= today() - INTERVAL '60 days' 
-          AND session_date < today() - INTERVAL '30 days'
+        AVG(CASE WHEN session_date >= today() - INTERVAL '61 days' 
+          AND session_date < today() - INTERVAL '31 days'
           THEN is_returning_user * 100.0 END) as new_vs_returning_previous_30d,
 
         -- Paid vs Organic (convert to percentage 0-100)
         AVG(CASE 
-          WHEN session_date >= today() - INTERVAL '30 days' 
+          WHEN session_date >= today() - INTERVAL '31 days' AND session_date < today()
             AND traffic_source IN ('facebook_paid','google_paid', 'facebook_organic', 'google_organic', 'direct')
           THEN CASE WHEN traffic_source IN ('facebook_paid', 'google_paid') THEN 100.0 ELSE 0.0 END
           ELSE NULL
         END) as paid_vs_organic_30d,
         AVG(CASE 
-          WHEN session_date >= today() - INTERVAL '60 days' 
-            AND session_date < today() - INTERVAL '30 days'
+          WHEN session_date >= today() - INTERVAL '61 days' 
+            AND session_date < today() - INTERVAL '31 days'
             AND traffic_source IN ('facebook_paid','google_paid', 'facebook_organic', 'google_organic', 'direct')
           THEN CASE WHEN traffic_source IN ('facebook_paid', 'google_paid') THEN 100.0 ELSE 0.0 END
           ELSE NULL
         END) as paid_vs_organic_previous_30d,
       
         -- Revenue metrics
-        SUM(CASE WHEN session_date >= today() - INTERVAL '30 days' 
+        SUM(CASE WHEN session_date >= today() - INTERVAL '31 days' AND session_date < today()
           THEN session_revenue ELSE 0 END) as revenue_last_30d,
-        SUM(CASE WHEN session_date >= today() - INTERVAL '60 days' 
-          AND session_date < today() - INTERVAL '30 days'
+        SUM(CASE WHEN session_date >= today() - INTERVAL '61 days' 
+          AND session_date < today() - INTERVAL '31 days'
           THEN session_revenue ELSE 0 END) as revenue_previous_30d
 
       FROM session_facts
@@ -68,31 +68,31 @@ export async function getUsersKPIs(db: any) {
       SELECT
         -- Trial Users (measure: trial_user_count filtered by days_since_last_session)
         SUM(CASE 
-          WHEN current_lifecycle_stage = 'trial' AND days_since_last_session < 30
+          WHEN has_trial_signup = 1 AND days_since_last_session BETWEEN 1 AND 30
           THEN 1 ELSE 0 
         END) as trial_users_last_30d,
         SUM(CASE 
-          WHEN current_lifecycle_stage = 'trial' AND days_since_last_session BETWEEN 30 AND 60
+          WHEN has_trial_signup = 1 AND days_since_last_session BETWEEN 31 AND 60
           THEN 1 ELSE 0 
         END) as trial_users_previous_30d,
         
         -- Onboarding Users (measure: onboarding_user_count filtered by days_since_last_session)
         SUM(CASE 
-          WHEN current_lifecycle_stage = 'consideration' AND days_since_last_session < 30
+          WHEN current_lifecycle_stage = 'consideration' AND days_since_last_session BETWEEN 1 AND 30
           THEN 1 ELSE 0 
         END) as onboarding_users_last_30d,
         SUM(CASE 
-          WHEN current_lifecycle_stage = 'consideration' AND days_since_last_session BETWEEN 30 AND 60
+          WHEN current_lifecycle_stage = 'consideration' AND days_since_last_session BETWEEN 31 AND 60
           THEN 1 ELSE 0 
         END) as onboarding_users_previous_30d,
         
         -- Customer Users (measure: customer_user_count filtered by days_since_last_session)
         SUM(CASE 
-          WHEN current_lifecycle_stage in ('activation','retention') AND days_since_last_session < 30
+          WHEN current_lifecycle_stage in ('activation','retention') AND days_since_last_session BETWEEN 1 AND 30
           THEN 1 ELSE 0 
         END) as customer_users_last_30d,
         SUM(CASE 
-          WHEN current_lifecycle_stage in ('activation','retention')  AND days_since_last_session BETWEEN 30 AND 60
+          WHEN current_lifecycle_stage in ('activation','retention')  AND days_since_last_session BETWEEN 31 AND 60
           THEN 1 ELSE 0 
         END) as customer_users_previous_30d
       FROM users_dim

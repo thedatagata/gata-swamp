@@ -113,14 +113,14 @@ export default function SessionDetailsDashboard({
         
         for (const query of sessionsDashboardQueries) {
           if (query.chartType === 'kpi') continue; // Skip KPIs, we handle them above
-          
           const table = tables[query.table];
           if (!table) continue;
           
           const rawData = await table.query({
             dimensions: query.dimensions,
             measures: query.measures,
-            filters: query.filters
+            filters: query.filters,
+            orderBy: query.orderBy
           });
           const data = sanitizeQueryData(rawData);
           
@@ -525,7 +525,7 @@ export default function SessionDetailsDashboard({
                 handleGenerateSQL();
               }
             }}
-            placeholder="Example: Show conversion rate by traffic source"
+            placeholder="show me measures by dimensions where dimension/ datetime field meets some condition"
             class="flex-1 p-3 rounded-lg border border-gata-green/30 bg-gata-dark/40 text-gata-cream placeholder-gata-cream/50 focus:border-gata-green focus:ring-2 focus:ring-gata-green/20 focus:outline-none"
             rows={2}
             disabled={sqlGenerating}

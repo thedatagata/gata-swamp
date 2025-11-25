@@ -11,6 +11,9 @@
   "session_date": {
     "type": "date"
   },
+  "days_since_last_session": {
+    "type": "number"
+  },
   "session_month_name": {
     "type": "month"
   },
@@ -44,10 +47,7 @@
   "max_lifecycle_stage": {
     "type": "string"
   },
-  "active_interest_session": {
-    "type": "number"
-  },
-  "interest_events": {
+  "awareness_events": {
     "type": "number"
   },
   "active_consideration_session": {
@@ -56,19 +56,22 @@
   "consideration_events": {
     "type": "number"
   },
-  "active_trial_session": {
-    "type": "number"
-  },
-  "trial_events": {
-    "type": "number"
-  },
-  "activation_stage_reached": {
-    "type": "number"
-  },
   "active_activation_session": {
     "type": "number"
   },
   "activation_events": {
+    "type": "number"
+  },
+  "retention_events": {
+    "type": "number"
+  },
+  "active_customer_session": {
+    "type": "number"
+  },
+  "total_events": {
+    "type": "number"
+  },
+  "events_30d": {
     "type": "number"
   },
   "purchased_plan": {
@@ -80,20 +83,17 @@
   "session_revenue": {
     "type": "number"
   },
-  "active_customer_session": {
+  "revenue_30d": {
     "type": "number"
   },
-  "retention_events": {
-    "type": "number"
+  "first_session_date": {
+    "type": "date"
   },
-  "total_events": {
-    "type": "number"
+  "last_session_date": {
+    "type": "date"
   },
-  "lifecycle_stage_conversion_session": {
+  "is_active_30d": {
     "type": "number"
-  },
-  "lifecycle_stage_converted_to": {
-    "type": "string"
   },
   "is_returning_user": {
     "type": "number"

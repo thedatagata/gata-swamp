@@ -7,10 +7,14 @@ export async function handler(
 ) {
   // Parse session_id from cookies
   const cookies = req.headers.get("cookie");
+  console.log("Middleware Cookies:", cookies);
+  
   const sessionId = cookies
     ?.split(";")
     .find((c) => c.trim().startsWith("session_id="))
     ?.split("=")[1];
+
+  console.log("Middleware Parsed SessionId:", sessionId);
 
   if (sessionId) {
     ctx.state.sessionId = sessionId;

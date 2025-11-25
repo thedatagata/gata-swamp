@@ -7,7 +7,7 @@ import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 export const handler: Handlers = {
   async POST(req) {
     try {
-      const { username, password, plan, demoEmail: _demoEmail } = await req.json();
+      const { username, password, plan, ai_addon_unlocked, ai_analyst_unlocked, demoEmail: _demoEmail } = await req.json();
 
       if (!username || !password || !plan) {
         return new Response(JSON.stringify({ error: "Missing fields" }), {
@@ -23,8 +23,9 @@ export const handler: Handlers = {
       // We store the demoEmail in the user record for tracking/analytics if needed
       // But the user context will be based on the dummy username
       const planTier = plan === 'smarter' ? 'premium' : 'free';
-      const aiAddon = plan === 'smarter';
-      const aiAnalyst = plan === 'smarter';
+      // Strictly respect the add-on flags from the request
+      const aiAddon = ai_addon_unlocked;
+      const aiAnalyst = ai_analyst_unlocked;
       
       const _user = await createUser(
         username, 
@@ -32,7 +33,8 @@ export const handler: Handlers = {
         planTier,
         aiAddon,
         aiAnalyst,
-        '3b' // preferred_model_tier
+        '3b', // preferred_model_tier
+        _demoEmail // demoEmail
       );
 
       // Create session
@@ -42,7 +44,7 @@ export const handler: Handlers = {
       const headers = new Headers();
       headers.set("Content-Type", "application/json");
       setCookie(headers, {
-        name: "sessionId",
+        name: "session_id",
         value: session.sessionId,
         maxAge: 60 * 60 * 24 * 7, // 1 week
         path: "/",
@@ -64,3 +66,4 @@ export const handler: Handlers = {
     }
   },
 };
+

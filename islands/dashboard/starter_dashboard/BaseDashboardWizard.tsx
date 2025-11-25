@@ -16,9 +16,11 @@ import UpgradeModal from "../../../components/UpgradeModal.tsx";
 interface BaseDashboardWizardProps {
   motherDuckToken: string;
   sessionId: string;
+  onUpgrade?: () => void;
+  aiAddonUnlocked?: boolean;
 }
 
-export default function BaseDashboardWizard({ motherDuckToken, sessionId }: BaseDashboardWizardProps) {
+export default function BaseDashboardWizard({ motherDuckToken, sessionId, onUpgrade, aiAddonUnlocked = false }: BaseDashboardWizardProps) {
   const [client, setClient] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId }: Base
   useEffect(() => {
     initializeClient();
     checkAIAccess();
-  }, [motherDuckToken]);
+  }, [motherDuckToken, aiAddonUnlocked]);
 
   async function initializeClient() {
     try {
@@ -61,25 +63,24 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId }: Base
 
   function checkAIAccess() {
     const ldClient = getLDClient();
+    let flagAccess = false;
+    
     if (ldClient) {
       // Check flag first
-      const flagAccess = ldClient.variation("starter-ai-query-access", false);
+      flagAccess = ldClient.variation("starter-ai-query-access", false);
+    }
       
-      // Also check user context directly (in case flag logic relies on it but is slow, or if we want to trust the context)
-      const context = ldClient.getContext();
-      const contextAccess = context?.custom?.ai_addon_unlocked === true;
-      
-      const hasAccess = flagAccess || contextAccess;
-      setHasAIAccess(hasAccess);
-      
-      // Track view of gated feature
-      if (!hasAccess) {
-        trackView("gate", "feature_gate", "BaseDashboardWizard", {
-          plan: "starter",
-          feature: "ai_query_generation",
-          gateType: "plan_upgrade"
-        });
-      }
+    // Combine flag access with explicit unlock prop
+    const hasAccess = flagAccess || aiAddonUnlocked;
+    setHasAIAccess(hasAccess);
+    
+    // Track view of gated feature
+    if (!hasAccess) {
+      trackView("gate", "feature_gate", "BaseDashboardWizard", {
+        plan: "starter",
+        feature: "ai_query_generation",
+        gateType: "plan_upgrade"
+      });
     }
   }
 
@@ -271,8 +272,12 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId }: Base
           sessionId={sessionId}
           onClose={() => setUpgradeModalConfig({ ...upgradeModalConfig, show: false })}
           onSuccess={() => {
-            // Refresh AI access state without reloading
-            checkAIAccess();
+            if (upgradeModalConfig.upgradeType === 'plan' && onUpgrade) {
+              onUpgrade();
+            } else {
+              // Refresh AI access state without reloading
+              checkAIAccess();
+            }
           }}
         />
       )}
@@ -302,7 +307,7 @@ export default function BaseDashboardWizard({ motherDuckToken, sessionId }: Base
               onInput={(e) => hasAIAccess && setNaturalLanguagePrompt((e.target as HTMLTextAreaElement).value)}
               onClick={handleAIPromptClick}
               placeholder={hasAIAccess 
-                ? "I want to look at [metrics] by [dimensions] over the past [amount of time]"
+                ? "show me [measures] by [dimensions] where [dimension/datetime field] meets [condition]"
                 : "Upgrade to unlock AI query generation ✨"
               }
               disabled={!hasAIAccess}

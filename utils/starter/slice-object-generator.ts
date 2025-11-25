@@ -29,13 +29,10 @@ const BINARY_FLAGS = [
   'is_currently_anonymous',
   'has_trial_signup',
   'is_paying_customer',
-  'has_reached_activation',
+  'reached_activation',
   'has_purchased_plan',
   'reached_awareness',
-  'reached_interest',
   'reached_consideration',
-  'reached_trial',
-  'reached_expansion',
   'reached_retention',
   'is_active_30d'
 ];

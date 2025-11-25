@@ -1,5 +1,6 @@
 import { PageProps, Handlers } from "$fresh/server.ts";
 import { getSession } from "../../utils/models/session.ts";
+import DemoUserManagement from "../../islands/admin/DemoUserManagement.tsx";
 
 interface AdminData {
   isAdmin: boolean;
@@ -13,7 +14,7 @@ export const handler: Handlers<AdminData> = {
     if (!sessionId) {
       return new Response("", {
         status: 303,
-        headers: { Location: "/auth/signin" },
+        headers: { Location: "/admin/login" },
       });
     }
 
@@ -21,7 +22,7 @@ export const handler: Handlers<AdminData> = {
     if (!session) {
       return new Response("", {
         status: 303,
-        headers: { Location: "/auth/signin" },
+        headers: { Location: "/admin/login" },
       });
     }
 
@@ -116,14 +117,16 @@ export default function AdminUsersPage({ data }: PageProps<AdminData>) {
             </div>
           </div>
 
+          {/* Demo Access Management Section */}
+          <DemoUserManagement />
+
           {/* Instructions Section */}
-          <div class="bg-[#90C137]/5 border border-[#90C137]/20 rounded-lg p-6">
+          <div class="bg-[#90C137]/5 border border-[#90C137]/20 rounded-lg p-6 mt-8">
             <h2 class="text-xl font-bold text-[#F8F6F0] mb-4">📋 Instructions</h2>
             <ol class="space-y-2 text-[#F8F6F0]/80 text-sm">
-              <li>1. Enter the user's email address</li>
-              <li>2. Create a temporary password (send this to them securely)</li>
-              <li>3. Add their email to the LaunchDarkly <strong>demo-access-allowlist</strong> flag</li>
-              <li>4. Share the site URL and credentials with them</li>
+              <li>1. <strong>Regular Users:</strong> Create users here. They can log in via "Member Login".</li>
+              <li>2. <strong>Demo Access:</strong> Add emails/passwords below. Users log in via "Demo Access" with these credentials.</li>
+              <li>3. Once verified, demo users create their own dummy account (Regular User) to use the app.</li>
             </ol>
           </div>
         </div>
@@ -159,7 +162,7 @@ export default function AdminUsersPage({ data }: PageProps<AdminData>) {
             
             if (res.ok) {
               messageDiv.className = 'mt-4 p-3 rounded bg-green-900/50 border border-green-500/50 text-green-200';
-              messageDiv.textContent = '✅ ' + data.message + ' - Remember to add them to LaunchDarkly!';
+              messageDiv.textContent = '✅ ' + data.message;
               form.reset();
               loadUsers(); // Refresh the list
             } else {
@@ -198,12 +201,16 @@ export default function AdminUsersPage({ data }: PageProps<AdminData>) {
                         <span>Created: \${new Date(user.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    <button 
-                      onclick="deleteUser('\${user.username}')"
-                      class="px-3 py-1.5 bg-red-900/30 border border-red-500/30 text-red-400 rounded hover:bg-red-900/50 transition-colors text-sm"
-                    >
-                      Delete
-                    </button>
+                    <div class="flex items-center gap-2">
+                      \${user.username !== "admin" && user.username !== "${data.adminEmail}" ? \`
+                        <button 
+                          onclick="deleteUser('\${user.username}')"
+                          class="px-3 py-1.5 bg-red-900/30 border border-red-500/30 text-red-400 rounded hover:bg-red-900/50 transition-colors text-sm"
+                        >
+                          Delete
+                        </button>
+                      \` : ''}
+                    </div>
                   </div>
                 \`).join('');
               }
@@ -216,7 +223,7 @@ export default function AdminUsersPage({ data }: PageProps<AdminData>) {
         }
 
         // Delete user function
-        async function deleteUser(username) {
+        window.deleteUser = async function(username) {
           if (!confirm(\`Are you sure you want to delete user "\${username}"?\`)) {
             return;
           }
@@ -231,7 +238,6 @@ export default function AdminUsersPage({ data }: PageProps<AdminData>) {
             const data = await res.json();
             
             if (res.ok) {
-              alert('✅ User deleted successfully');
               loadUsers();
             } else {
               alert('❌ ' + data.error);

@@ -11,6 +11,7 @@ export interface DashboardQuery {
   dimensions: string[];
   measures: string[];
   filters?: string[] | null;
+  orderBy?: string[];
   chartType: "kpi" | "bar" | "line" | "funnel" | "area";
 }
 
@@ -25,7 +26,7 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     title: "Total Revenue",
     dimensions: [],
     measures: ["total_revenue"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '30 days'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '31 days' AND session_date < CURRENT_DATE"],
     chartType: "kpi"
   },
   {
@@ -34,7 +35,7 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     title: "Total Sessions",
     dimensions: [],
     measures: ["session_count"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '30 days'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '31 days' AND session_date < CURRENT_DATE"],
     chartType: "kpi"
   },
   {
@@ -43,7 +44,7 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     title: "Unique Visitors",
     dimensions: [],
     measures: ["unique_visitors"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '30 days'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '31 days' AND session_date < CURRENT_DATE"],
     chartType: "kpi"
   },
   {
@@ -52,16 +53,16 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     title: "Trial Signup Rate",
     dimensions: [],
     measures: ["trial_signup_rate"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '30 days'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '31 days' AND session_date < CURRENT_DATE"],
     chartType: "kpi"
   },
   {
     id: "plan_performance",
     table: "sessions",
     title: "Plan Performance",
-    dimensions: ["current_plan_tier"],
+    dimensions: ["plan_tier"],
     measures: ["session_count", "total_revenue"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '90 days'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '91 days' AND session_date < CURRENT_DATE"],
     chartType: "bar"
   },
   {
@@ -70,7 +71,7 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     title: "Traffic Source Performance",
     dimensions: ["traffic_source"],
     measures: ["session_count", "unique_visitors", "total_revenue"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '90 days'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '91 days' AND session_date < CURRENT_DATE"],
     chartType: "bar"
   },
   {
@@ -79,7 +80,8 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     title: "Sessions Over Time",
     dimensions: ["session_date"],
     measures: ["session_count", "unique_visitors"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '12 weeks'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '12 weeks' - INTERVAL '1 day' AND session_date < CURRENT_DATE"],
+    orderBy: ["session_date"],
     chartType: "line"
   },
   {
@@ -88,7 +90,7 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     title: "Lifecycle Funnel",
     dimensions: ["max_lifecycle_stage"],
     measures: ["unique_visitors"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '90 days'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '91 days' AND session_date < CURRENT_DATE"],
     chartType: "funnel"
   },
   {
@@ -97,7 +99,7 @@ export const sessionsDashboardQueries: DashboardQuery[] = [
     title: "Activation Performance",
     dimensions: ["traffic_source_type"],
     measures: ["total_active_activation_sessions", "session_count"],
-    filters: ["session_date >= CURRENT_DATE - INTERVAL '90 days'"],
+    filters: ["session_date >= CURRENT_DATE - INTERVAL '91 days' AND session_date < CURRENT_DATE"],
     chartType: "bar"
   }
 ];
@@ -148,7 +150,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "Activation Rate",
     dimensions: [],
-    measures: ["activation_rate"],
+    measures: ["reached_activation_rate"],
     filters: null,
     chartType: "kpi"
   },
@@ -166,7 +168,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     table: "users",
     title: "Acquisition Source Performance",
     dimensions: ["first_traffic_source"],
-    measures: ["unique_users", "total_activated_users", "total_paying_customers"],
+    measures: ["unique_users", "total_reached_activation", "total_paying_customers"],
     filters: null,
     chartType: "bar"
   },
@@ -174,7 +176,7 @@ export const usersDashboardQueries: DashboardQuery[] = [
     id: "plan_distribution",
     table: "users",
     title: "Revenue by Plan Tier",
-    dimensions: ["plan_tier"],
+    dimensions: ["current_plan_tier"],
     measures: ["unique_users", "total_lifetime_revenue", "avg_revenue_per_user"],
     filters: ["current_plan_tier IS NOT NULL", "current_plan_tier != ''"],
     chartType: "bar"

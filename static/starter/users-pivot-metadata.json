@@ -56,46 +56,22 @@
   "is_paying_customer": {
     "type": "number"
   },
-  "has_reached_activation": {
-    "type": "number"
-  },
   "has_purchased_plan": {
     "type": "number"
   },
   "reached_awareness": {
     "type": "number"
   },
-  "reached_interest": {
-    "type": "number"
-  },
   "reached_consideration": {
     "type": "number"
   },
-  "reached_trial": {
-    "type": "number"
-  },
-  "reached_expansion": {
+  "reached_activation": {
     "type": "number"
   },
   "reached_retention": {
     "type": "number"
   },
-  "total_funnel_conversions": {
-    "type": "number"
-  },
-  "lifecycle_journey": {
-    "type": "string"
-  },
-  "unique_stages_reached": {
-    "type": "number"
-  },
-  "total_interest_events": {
-    "type": "number"
-  },
   "total_consideration_events": {
-    "type": "number"
-  },
-  "total_trial_events": {
     "type": "number"
   },
   "total_activation_events": {
@@ -107,13 +83,7 @@
   "total_events": {
     "type": "number"
   },
-  "interest_active_sessions": {
-    "type": "number"
-  },
   "consideration_active_sessions": {
-    "type": "number"
-  },
-  "trial_active_sessions": {
     "type": "number"
   },
   "activation_active_sessions": {

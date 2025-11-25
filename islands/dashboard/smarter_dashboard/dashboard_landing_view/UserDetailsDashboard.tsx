@@ -482,7 +482,7 @@ export default function UserDetailsDashboard({ db, webllmEngine, onBack, onExecu
                 handleGenerateSQL();
               }
             }}
-            placeholder="Use dimension and measure names from the catalog above for better results (e.g., 'Show unique_users by customer_type')"
+            placeholder="show me measures by dimensions where dimension/ datetime field meets some condition"
             class="flex-1 p-3 rounded-lg border border-gata-green/30 bg-gata-dark/40 text-gata-cream placeholder-gata-cream/50 focus:border-gata-green focus:ring-2 focus:ring-gata-green/20 focus:outline-none"
             rows={2}
             disabled={sqlGenerating}

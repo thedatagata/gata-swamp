@@ -145,31 +145,64 @@ export default function HeroFeature({ ldClientId }: HeroFeatureProps) {
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   const form = e.target as HTMLFormElement;
-                  const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-                  const btn = form.querySelector('button');
+                  const emailInput = form.elements.namedItem('email') as HTMLInputElement;
+                  const passwordInput = form.elements.namedItem('password') as HTMLInputElement;
+                  const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement | null;
                   const msg = document.getElementById('access-msg');
                   
                   if (btn) btn.disabled = true;
-                  if (msg) msg.textContent = 'Verifying access...';
+                  if (msg) msg.textContent = 'Verifying...';
                   
                   try {
-                    const res = await fetch('/api/demo/access', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ email })
-                    });
-                    
-                    if (res.ok) {
-                      globalThis.location.href = '/demo/setup';
-                    } else {
-                      const data = await res.json();
-                      if (msg) {
-                        msg.textContent = '❌ ' + (data.error || 'Access denied');
-                        msg.className = 'text-red-400 text-sm mt-2';
+                    // Step 1: Check email against LaunchDarkly allowlist
+                    if (passwordInput.style.display === 'none' || !passwordInput.value) {
+                      const res = await fetch('/api/demo/check-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: emailInput.value })
+                      });
+                      
+                      if (res.ok) {
+                        // Email is in allowlist, show password field
+                        passwordInput.style.display = 'block';
+                        passwordInput.parentElement!.style.display = 'block';
+                        emailInput.disabled = true;
+                        if (msg) {
+                          msg.textContent = '✅ Email verified! Enter your access code.';
+                          msg.className = 'text-[#90C137] text-sm mt-2';
+                        }
+                        if (btn) {
+                          btn.disabled = false;
+                          btn.textContent = 'Access Demo';
+                        }
+                      } else {
+                        const data = await res.json();
+                        if (msg) {
+                          msg.textContent = '❌ ' + (data.error || 'Email not authorized');
+                          msg.className = 'text-red-400 text-sm mt-2';
+                        }
+                        if (btn) btn.disabled = false;
                       }
-                      if (btn) btn.disabled = false;
+                    } else {
+                      // Step 2: Verify password
+                      const res = await fetch('/api/demo/access', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: emailInput.value, password: passwordInput.value })
+                      });
+                      
+                      if (res.ok) {
+                        globalThis.location.href = '/demo/setup';
+                      } else {
+                        const data = await res.json();
+                        if (msg) {
+                          msg.textContent = '❌ ' + (data.error || 'Invalid password');
+                          msg.className = 'text-red-400 text-sm mt-2';
+                        }
+                        if (btn) btn.disabled = false;
+                      }
                     }
-                  } catch (err) {
+                  } catch (_err) {
                     if (msg) {
                       msg.textContent = '❌ Connection failed';
                       msg.className = 'text-red-400 text-sm mt-2';
@@ -178,26 +211,40 @@ export default function HeroFeature({ ldClientId }: HeroFeatureProps) {
                   }
                 }} class="space-y-4">
                   <div>
-                    <label class="block text-sm font-medium text-[#F8F6F0]/80 mb-1">
+                    <label htmlFor="email-input" class="block text-sm font-medium text-[#F8F6F0]/80 mb-1">
                       Enter your email to access the demo
                     </label>
                     <div class="flex gap-2">
                       <input 
+                        id="email-input"
                         type="email" 
                         name="email"
                         required
                         placeholder="name@company.com"
-                        class="flex-1 px-4 py-3 bg-[#172217]/50 border border-[#90C137]/30 rounded-lg text-[#F8F6F0] placeholder-[#F8F6F0]/30 focus:border-[#90C137] focus:ring-1 focus:ring-[#90C137] outline-none transition-all"
+                        class="flex-1 px-4 py-3 bg-white border border-[#90C137]/30 rounded-lg text-black placeholder-gray-500 focus:border-[#90C137] focus:ring-1 focus:ring-[#90C137] outline-none transition-all"
                       />
-                      <button
-                        type="submit"
-                        class="px-6 py-3 bg-[#90C137] text-[#172217] font-bold rounded-lg hover:bg-[#a0d147] transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                      >
-                        Access Demo
-                      </button>
                     </div>
-                    <div id="access-msg" class="text-[#F8F6F0]/60 text-sm mt-2"></div>
                   </div>
+                  <div style="display: none;">
+                    <label htmlFor="password-input" class="block text-sm font-medium text-[#F8F6F0]/80 mb-1">
+                      Access Code
+                    </label>
+                    <input 
+                      id="password-input"
+                      type="password" 
+                      name="password"
+                      placeholder="Enter your access code"
+                      style="display: none;"
+                      class="w-full px-4 py-3 bg-white border border-[#90C137]/30 rounded-lg text-black placeholder-gray-500 focus:border-[#90C137] focus:ring-1 focus:ring-[#90C137] outline-none transition-all"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    class="w-full px-6 py-3 bg-[#90C137] text-[#172217] font-bold rounded-lg hover:bg-[#a0d147] transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Verify Email
+                  </button>
+                  <div id="access-msg" class="text-[#F8F6F0]/60 text-sm mt-2"></div>
                 </form>
               </div>
           </div>
