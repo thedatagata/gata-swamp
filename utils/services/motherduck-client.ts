@@ -1,16 +1,17 @@
 import { MDConnection } from "@motherduck/wasm-client";
 
 export async function createMotherDuckClient(token: string) {
+  // Config object removed for v0.8.1+ compatibility
   const connection = MDConnection.create({
     mdToken: token,
-    duckDbConfig: {
-      path: 'md.db',
-    }
   });
   
   await connection.isInitialized();
   
-  // Set default database
+  // If you previously relied on "path: 'md.db'" for persistence,
+  // that specific configuration pattern is no longer supported in the create() method.
+  // You would now typically just rely on the standard MotherDuck cloud storage.
+  
   await connection.evaluateQuery("USE my_db;");
   
   console.log("MotherDuck WASM client initialized successfully");
