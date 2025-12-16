@@ -1,4 +1,4 @@
-import { MDConnection } from "npm:@motherduck/wasm-client@0.6.6";
+import { MDConnection } from "@motherduck/wasm-client";
 
 export async function createMotherDuckClient(token: string) {
   const connection = MDConnection.create({

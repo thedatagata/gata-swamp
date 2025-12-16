@@ -18,6 +18,7 @@ import * as $api_auth_signup from "./routes/api/auth/signup.ts";
 import * as $api_demo_access from "./routes/api/demo/access.ts";
 import * as $api_demo_check_email from "./routes/api/demo/check-email.ts";
 import * as $api_demo_create_account from "./routes/api/demo/create-account.ts";
+import * as $api_demo_usage from "./routes/api/demo/usage.ts";
 import * as $api_mock_checkout from "./routes/api/mock-checkout.ts";
 import * as $api_motherduck_token from "./routes/api/motherduck-token.ts";
 import * as $api_onboarding_complete from "./routes/api/onboarding/complete.ts";
@@ -75,6 +76,7 @@ const manifest = {
     "./routes/api/demo/access.ts": $api_demo_access,
     "./routes/api/demo/check-email.ts": $api_demo_check_email,
     "./routes/api/demo/create-account.ts": $api_demo_create_account,
+    "./routes/api/demo/usage.ts": $api_demo_usage,
     "./routes/api/mock-checkout.ts": $api_mock_checkout,
     "./routes/api/motherduck-token.ts": $api_motherduck_token,
     "./routes/api/onboarding/complete.ts": $api_onboarding_complete,
