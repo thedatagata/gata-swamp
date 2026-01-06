@@ -53,3 +53,21 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await kv.delete(["sessions", sessionId]);
   console.log(`🔓 Deleted session: ${sessionId}`);
 }
+export async function deleteSessionsForUser(username: string): Promise<void> {
+  const kv = await getKv();
+  const entries = kv.list<Session>({ prefix: ["sessions"] });
+  const atomic = kv.atomic();
+  
+  let count = 0;
+  for await (const entry of entries) {
+    if (entry.value.username === username) {
+      atomic.delete(entry.key);
+      count++;
+    }
+  }
+  
+  if (count > 0) {
+    await atomic.commit();
+    console.log(`🧹 Revoked ${count} sessions for user: ${username}`);
+  }
+}

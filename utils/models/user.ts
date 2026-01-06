@@ -13,6 +13,8 @@ export interface User {
   googleAccessToken?: string;
   googleRefreshToken?: string;
   demoEmail?: string;
+  securityRestricted?: boolean;
+  lastSecurityEvent?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +45,7 @@ export async function createUser(
     ai_analyst_unlocked: data.ai_analyst_unlocked || false,
     preferred_model_tier: data.preferred_model_tier || "3b",
     demoEmail: data.demoEmail,
+    securityRestricted: false,
     createdAt: new Date(),
     updatedAt: new Date()
   };

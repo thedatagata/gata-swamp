@@ -1,7 +1,7 @@
 import { Handlers } from "$fresh/server.ts";
 import { handleCallback } from "@deno/kv-oauth";
 import { oauthConfig } from "../../../utils/oauth.ts";
-import { getUserByEmail, getUser, createUser, updateUser, type User } from "../../../utils/models/user.ts";
+import { getUserByEmail, getUser, createUser, updateUser } from "../../../utils/models/user.ts";
 import { createSession } from "../../../utils/models/session.ts";
 
 export const handler: Handlers = {
@@ -46,6 +46,11 @@ export const handler: Handlers = {
           googleId,
           plan_tier: "free",
         });
+      }
+
+      // Check security status
+      if (user.securityRestricted) {
+        return new Response("Account restricted for security reasons. Please contact support.", { status: 403 });
       }
 
       // Store/Update tokens for GCS access

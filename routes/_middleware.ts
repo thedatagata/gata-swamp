@@ -1,5 +1,6 @@
-// routes/_middleware.ts
 import { MiddlewareHandlerContext } from "$fresh/server.ts";
+import { getSession, deleteSession } from "../utils/models/session.ts";
+import { getUser } from "../utils/models/user.ts";
 
 export async function handler(
   req: Request,
@@ -18,6 +19,17 @@ export async function handler(
 
   if (sessionId) {
     ctx.state.sessionId = sessionId;
+    
+    // background security check
+    const session = await getSession(sessionId);
+    if (session) {
+      const user = await getUser(session.username);
+      if (user?.securityRestricted) {
+        console.warn(`🛑 [Security] Blocking session for restricted user: ${user.username}`);
+        await deleteSession(sessionId);
+        return new Response("Account Restricted", { status: 403 });
+      }
+    }
   }
 
   const resp = await ctx.next();

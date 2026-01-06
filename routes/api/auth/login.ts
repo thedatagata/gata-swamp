@@ -29,6 +29,17 @@ export const handler: Handlers = {
         });
       }
 
+      // Check security status
+      if (user.securityRestricted) {
+        return new Response(JSON.stringify({ 
+          error: "Account Restricted", 
+          details: "Your Google Account reported a security event. Please contact support." 
+        }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       // Verify password
       if (!user.passwordHash) {
         return new Response(JSON.stringify({ error: "Account has no password (try Google login)" }), {
