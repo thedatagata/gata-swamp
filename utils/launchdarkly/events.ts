@@ -146,7 +146,8 @@ function getTimeInContext(): number {
   return start ? Date.now() - parseInt(start) : 0;
 }
 
-function getSessionId(): string {
+export function getSessionId(): string {
+
   if (typeof sessionStorage === "undefined") return "server-session";
   let id = sessionStorage.getItem("sessionId");
   if (!id) {

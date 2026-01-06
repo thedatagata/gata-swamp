@@ -1,5 +1,5 @@
 import { Handlers } from "$fresh/server.ts";
-import { getUser } from "../../../utils/models/user.ts";
+import { getUser, getUserByEmail } from "../../../utils/models/user.ts";
 import { createSession } from "../../../utils/models/session.ts";
 import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
@@ -15,10 +15,14 @@ export const handler: Handlers = {
         });
       }
 
-      // Get user
-      const user = await getUser(username);
+      // Try finding user by username or email
+      let user = await getUser(username);
+      if (!user && username.includes("@")) {
+        user = await getUserByEmail(username);
+      }
+
       if (!user) {
-        console.log(`❌ Login failed: User '${username}' not found.`);
+        console.log(`❌ Login failed: User identified by '${username}' not found.`);
         return new Response(JSON.stringify({ error: "Invalid credentials" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },
@@ -26,9 +30,16 @@ export const handler: Handlers = {
       }
 
       // Verify password
+      if (!user.passwordHash) {
+        return new Response(JSON.stringify({ error: "Account has no password (try Google login)" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) {
-        console.log(`❌ Login failed: Password mismatch for user '${username}'.`);
+        console.log(`❌ Login failed: Password mismatch for user '${user.username}'.`);
         return new Response(JSON.stringify({ error: "Invalid credentials" }), {
           status: 401,
           headers: { "Content-Type": "application/json" },
@@ -36,7 +47,7 @@ export const handler: Handlers = {
       }
 
       // Create session
-      const session = await createSession(username);
+      const session = await createSession(user.username);
 
       // Set cookie
       const headers = new Headers({

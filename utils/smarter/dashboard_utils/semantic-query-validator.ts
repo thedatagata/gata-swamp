@@ -1,5 +1,5 @@
 // utils/smarter/dashboard_utils/semantic-query-validator.ts
-import { getSemanticMetadata, findDimensionByAlias, findMeasureByAlias } from "./semantic-config.ts";
+import { getSemanticMetadata, findDimensionByAlias as _findDimensionByAlias, findMeasureByAlias } from "./semantic-config.ts";
 
 /**
  * Parsed query structure with user-friendly aliases
@@ -32,7 +32,7 @@ export interface ValidationResult {
     column: string;
     message: string;
     correction: string;
-    fieldMetadata?: any;
+    fieldMetadata?: Record<string, unknown>;
   }>;
   warnings: string[];
   correctionPrompt?: string;
@@ -63,7 +63,7 @@ interface CategorizedMeasures {
 export class SemanticQueryValidator {
   private metadata: ReturnType<typeof getSemanticMetadata>;
 
-  constructor(private table: "sessions" | "users" = "sessions") {
+  constructor(private table: string = "sessions") {
     this.metadata = getSemanticMetadata(table);
   }
 
@@ -240,7 +240,7 @@ export class SemanticQueryValidator {
           type: 'unknown_column',
           column: innerExpr,
           message: `Unknown field "${innerExpr}" in aggregation`,
-          correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 10).join(', ')}`
+          correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 30).join(', ')}`
         }};
       }
       return {};
@@ -253,7 +253,7 @@ export class SemanticQueryValidator {
         type: 'unknown_column',
         column: fieldName,
         message: `Unknown field "${fieldName}"`,
-        correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 10).join(', ')}`
+        correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 30).join(', ')}`
       }};
     }
 
@@ -268,7 +268,7 @@ export class SemanticQueryValidator {
     const knownFields = Object.keys(this.metadata.fields);
     
     // Remove function calls and operators to avoid false matches
-    let cleanExpr = expr
+    const cleanExpr = expr
       .replace(/INTERVAL\s+'[^']+'/gi, '') // Remove INTERVAL literals
       .replace(/DATE_SUB\s*\([^)]*\)/gi, '') // Remove DATE_SUB calls
       .replace(/DATE_DIFF\s*\([^)]*\)/gi, '') // Remove DATE_DIFF calls
@@ -313,7 +313,7 @@ export class SemanticQueryValidator {
         type: 'unknown_column',
         column: fieldName,
         message: `Unknown field "${fieldName}" in GROUP BY`,
-        correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 10).join(', ')}`
+        correction: `Use one of: ${Object.keys(this.metadata.fields).slice(0, 30).join(', ')}`
       }};
     }
 
@@ -380,7 +380,7 @@ export class SemanticQueryValidator {
   /**
    * Generate correction prompt for LLM
    */
-  private generateCorrectionPrompt(sql: string, errors: ValidationResult['errors']): string {
+  private generateCorrectionPrompt(_sql: string, errors: ValidationResult['errors']): string {
     const uniqueErrorTypes = new Set(errors.map(e => e.type));
     
     let prompt = `🚨 SQL ERRORS (${errors.length})\n\n`;
@@ -422,9 +422,9 @@ export class SemanticQueryValidator {
         const relevantMeasures: Array<[string, string, string]> = [];
         Object.entries(this.metadata.measures).forEach(([source, measure]) => {
           if (measure.aggregations) {
-            measure.aggregations.forEach((agg: any) => {
+            measure.aggregations.forEach((agg: Record<string, unknown>) => {
               const aggType = Object.keys(agg)[0];
-              const aggConfig = agg[aggType];
+              const aggConfig = agg[aggType] as { alias: string };
               if (errorColumns.has(aggConfig.alias) || errorColumns.has(source)) {
                 relevantMeasures.push([aggConfig.alias, aggType.toUpperCase(), source]);
               }
@@ -550,8 +550,8 @@ export class SemanticQueryValidator {
 
   private generateChartRecommendations(
     queryType: ReturnType<typeof this.detectQueryType>,
-    dims: CategorizedDimensions,
-    measures: CategorizedMeasures
+    _dims: CategorizedDimensions,
+    _measures: CategorizedMeasures
   ) {
     const recs: Array<{ type: string; reason: string; priority: number }> = [];
 
@@ -586,6 +586,6 @@ export class SemanticQueryValidator {
 /**
  * Factory function
  */
-export function createQueryValidator(table: "sessions" | "users" = "sessions"): SemanticQueryValidator {
+export function createQueryValidator(table: string = "sessions"): SemanticQueryValidator {
   return new SemanticQueryValidator(table);
 }

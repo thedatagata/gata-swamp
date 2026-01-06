@@ -1,58 +1,54 @@
 import { Head } from "$fresh/runtime.ts";
 import Nav from "../../components/Nav.tsx";
-import Footer from "../../components/Footer.tsx";
+import GataFooter from "../../components/GataFooter.tsx";
 
 export default function Home() {
   return (
-    <>
+    <div class="bg-gata-dark min-h-screen">
       <Head>
         <title>DATA_GATA | Analytics Dashboard</title>
       </Head>
       
       <Nav />
-      <main class="min-h-screen bg-gradient-to-br from-[#172217] to-[#186018] py-32">
+      <main class="min-h-screen pt-32 pb-20">
         <div class="max-w-4xl mx-auto px-4">
           <div class="text-center mb-16">
-            <h1 class="text-5xl font-bold text-[#F8F6F0] mb-4">
-              Analytics Dashboard
+            <h1 class="text-6xl font-black text-gata-cream italic tracking-tighter uppercase mb-4 leading-none">
+              Analytics <span class="text-gata-green">Dashboard.</span>
             </h1>
-            <p class="text-xl text-[#F8F6F0]/80">
+            <p class="text-xs text-gata-cream/40 font-medium uppercase tracking-[0.2em] max-w-lg mx-auto leading-relaxed">
               Natural language queries powered by MotherDuck
             </p>
           </div>
 
-          <div class="bg-[#F8F6F0] rounded-lg p-8 shadow-xl max-w-md mx-auto">
-            <h2 class="text-3xl font-bold text-[#172217] mb-4">Get Started</h2>
-            <ul class="space-y-3 mb-8 text-[#172217]">
+          <div class="bg-gata-dark/40 backdrop-blur-xl border border-gata-green/10 rounded-[3rem] p-12 shadow-2xl max-w-md mx-auto relative overflow-hidden group">
+            <div class="absolute inset-0 bg-gradient-to-br from-gata-green/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            
+            <h2 class="text-3xl font-black text-gata-cream italic uppercase tracking-tighter mb-8 pr-12">Get Started</h2>
+            <ul class="space-y-4 mb-10 text-gata-cream/60 font-medium">
               <li class="flex items-start">
-                <svg class="w-6 h-6 text-[#90C137] mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
+                <span class="w-2 h-2 rounded-full bg-gata-green mr-4 mt-2 shadow-[0_0_10px_rgba(144,193,55,0.5)]"></span>
                 Stream data from MotherDuck
               </li>
               <li class="flex items-start">
-                <svg class="w-6 h-6 text-[#90C137] mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
+                <span class="w-2 h-2 rounded-full bg-gata-green mr-4 mt-2 shadow-[0_0_10px_rgba(144,193,55,0.5)]"></span>
                 MotherDuck AI natural language queries
               </li>
               <li class="flex items-start">
-                <svg class="w-6 h-6 text-[#90C137] mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                </svg>
+                <span class="w-2 h-2 rounded-full bg-gata-green mr-4 mt-2 shadow-[0_0_10px_rgba(144,193,55,0.5)]"></span>
                 Interactive visualizations
               </li>
             </ul>
             <a 
               href="/app/dashboard"
-              class="block w-full text-center py-3 bg-[#172217] text-[#F8F6F0] font-semibold rounded-md hover:bg-[#2a3a2a] transition-colors"
+              class="block w-full text-center py-4 bg-gata-green text-gata-dark font-black uppercase tracking-[0.2em] text-xs rounded-full hover:bg-[#a0d147] transition-all transform hover:-translate-y-1 shadow-lg shadow-gata-green/20"
             >
-              Launch Dashboard
+              Launch Dashboard 🚀
             </a>
           </div>
         </div>
       </main>
-      <Footer />
-    </>
+      <GataFooter />
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 {
   "table": "users_dim",
-  "description": "User-level analytics with 254K users from November 2023 to November 2025",
+  "description": "User-level analytics from amplitude.users_pivot_src (materialized as users_dim) with 254K users",
   "fields": {
     "cookie_id": {"description": "Unique user identifier", "md_data_type": "VARCHAR", "ingest_data_type": "string", "sanitize": false, "data_type_category": "identifier", "members": null},
     "first_session_date": {"description": "Date of first session", "md_data_type": "TIMESTAMP", "ingest_data_type": "timestamp", "sanitize": false, "data_type_category": "temporal", "members": null},

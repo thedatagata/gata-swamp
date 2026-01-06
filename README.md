@@ -131,7 +131,7 @@ BaseDashboardWizard             SmartDashLoadingPage
 2. **WebLLM Processing**: Model receives prompt + semantic metadata catalog
 3. **Query Specification**: Model generates JSON with dimensions, measures, filters
 4. **Validation**: Semantic validator checks field names against metadata
-5. **SQL Translation**: Semantic amplitude module converts to executable SQL
+5. **SQL Translation**: Semantic objects module converts to executable SQL
 6. **Query Execution**: DuckDB WASM executes against local materialized tables
 7. **Result Analysis**: Query response analyzer recommends visualization types
 8. **Chart Generation**: Chart generator creates Chart.js configuration
@@ -455,7 +455,7 @@ components use to retrieve dimension definitions, measure specifications, and fi
 also generates the prompt that WebLLM receives, which includes a complete catalog of available
 dimensions and measures with their business-friendly names.
 
-`semantic-amplitude.ts` implements the `SemanticReportObj` class, which translates semantic query
+`semantic-objects.ts` implements the `SemanticReportObj` class, which translates semantic query
 specifications into executable SQL. Given a query with dimension names, measure aliases, and filters
 expressed in business terms, this class maps them back to their underlying field names, applies
 transformations, constructs aggregation logic, and generates valid DuckDB SQL. It handles special
@@ -971,7 +971,7 @@ dasgata/
 │   │   └── KPICard.tsx
 │   ├── UpgradeModal.tsx
 │   ├── Nav.tsx
-│   ├── Footer.tsx
+│   ├── GataFooter.tsx
 │   └── Hero.tsx
 │
 ├── utils/                     # Utility modules
@@ -2308,7 +2308,7 @@ if (hasTwoMeasures && noIntersectingDimensions) {
 
 **Performance Optimizations**:
 
-- Add query result caching in semantic-amplitude.ts
+- Add query result caching in semantic-objects.ts
 - Implement data downsampling for large charts
 - Optimize WebLLM prompt lengths
 - Add progressive loading for dashboard KPIs

@@ -1,25 +1,31 @@
-// islands/dashboard/starter_dashboard/WebDataRocksPivot.tsx
+// islands/dashboard/shared/WebDataRocksPivot.tsx
 import { useEffect, useRef, useState } from "preact/hooks";
 import { 
   generateSliceObject, 
   getFieldMetadata 
-} from "../../../utils/starter/slice-object-generator.ts";
+} from "../../../utils/smarter/dashboard_utils/slice-object-generator.ts";
+
+import { SemanticLayer } from "../../../utils/system/semantic-profiler.ts";
+import { type SemanticMetadata } from "../../../utils/smarter/dashboard_utils/semantic-config.ts";
 
 interface WebDataRocksPivotProps {
-  data: any[];
-  initialSlice?: any;
-  onReportComplete?: (pivot: any) => void;
+  data: Record<string, unknown>[];
+  initialSlice?: Record<string, unknown>;
+  semanticLayer?: SemanticLayer | SemanticMetadata;
+  onReportComplete?: (pivot: unknown) => void;
   onLoadError?: (error: string) => void;
 }
 
 export default function WebDataRocksPivot({ 
   data, 
   initialSlice, 
+  semanticLayer,
   onReportComplete,
   onLoadError 
 }: WebDataRocksPivotProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const pivotRef = useRef<any>(null);
+  // deno-lint-ignore no-explicit-any
+  const pivotRef = useRef<any>(null); // WebDataRocks instance doesn't have a formal type
   const loadTimeoutRef = useRef<number | null>(null);
   const [assetsLoaded, setAssetsLoaded] = useState(false);
 
@@ -69,7 +75,8 @@ export default function WebDataRocksPivot({
       });
       return;
     }
-    if (typeof window === 'undefined' || !(window as any).WebDataRocks) {
+    // deno-lint-ignore no-explicit-any
+    if (typeof globalThis === 'undefined' || !(globalThis as any).WebDataRocks) {
       console.log('WebDataRocksPivot: WebDataRocks not available');
       return;
     }
@@ -81,7 +88,7 @@ export default function WebDataRocksPivot({
     });
 
     // Sanitize data
-    const sanitizedData = deepSanitize(data);
+    const sanitizedData = deepSanitize(data) as Record<string, unknown>[];
     
     // Test JSON serialization
     try {
@@ -92,7 +99,8 @@ export default function WebDataRocksPivot({
       return;
     }
     
-    const WebDataRocks = (window as any).WebDataRocks;
+    // deno-lint-ignore no-explicit-any
+    const WebDataRocks = (globalThis as any).WebDataRocks;
 
     if (pivotRef.current) {
       pivotRef.current.dispose();
@@ -102,7 +110,9 @@ export default function WebDataRocksPivot({
     const columns = sanitizedData.length > 0 ? Object.keys(sanitizedData[0]) : [];
     console.log('WebDataRocksPivot: Detected columns:', columns);
 
-    const metadataObject = buildUsersMetadata(columns);
+    const metadataObject = semanticLayer 
+      ? buildSemanticMetadata(columns, semanticLayer)
+      : buildUsersMetadata(columns);
     const dataWithMetadata = [metadataObject, ...sanitizedData];
     console.log('WebDataRocksPivot: ✅ Prepended metadata object');
 
@@ -132,7 +142,7 @@ export default function WebDataRocksPivot({
     });
 
     // Set timeout to detect data overload (3 seconds)
-    loadTimeoutRef.current = window.setTimeout(() => {
+    loadTimeoutRef.current = globalThis.setTimeout(() => {
       if (onLoadError) {
         console.error('❌ Data load timeout - likely data too large');
         onLoadError('Data load timeout - data may be too large for free tier');
@@ -162,7 +172,8 @@ export default function WebDataRocksPivot({
       }
     });
 
-    (window as any).__pivotInstance = pivotRef.current;
+    // deno-lint-ignore no-explicit-any
+    (globalThis as any).__pivotInstance = pivotRef.current;
 
     return () => {
       // Clear timeout on cleanup
@@ -178,7 +189,7 @@ export default function WebDataRocksPivot({
     };
   }, [data, initialSlice, assetsLoaded]);
 
-  function deepSanitize(obj: any): any {
+  function deepSanitize(obj: unknown): unknown {
     if (obj === null || obj === undefined) return obj;
     if (typeof obj === 'bigint') return Number(obj);
     if (obj instanceof Uint8Array) {
@@ -187,9 +198,10 @@ export default function WebDataRocksPivot({
     }
     if (Array.isArray(obj)) return obj.map(deepSanitize);
     if (typeof obj === 'object') {
-      const result: any = {};
-      for (const key in obj) {
-        result[key] = deepSanitize(obj[key]);
+      const result: Record<string, unknown> = {};
+      const actualObj = obj as Record<string, unknown>;
+      for (const key in actualObj) {
+        result[key] = deepSanitize(actualObj[key]);
       }
       return result;
     }
@@ -201,8 +213,40 @@ export default function WebDataRocksPivot({
    * CRITICAL: First element in data array must be metadata
    * Includes availableAggregations for measures
    */
+  /**
+   * Build metadata object for generic SemanticLayer
+   */
+  function buildSemanticMetadata(columns: string[], layer: SemanticLayer | SemanticMetadata) {
+    const metadataObj: Record<string, unknown> = {};
+    
+    columns.forEach(col => {
+      // deno-lint-ignore no-explicit-any
+      const field = (layer as any).fields[col];
+      // deno-lint-ignore no-explicit-any
+      const isMeasure = !!(layer as any).measures[col];
+      
+      if (isMeasure) {
+        metadataObj[col] = {
+          type: "number",
+          availableAggregations: ["sum", "max", "min", "avg"]
+        };
+      } else if (field) {
+        metadataObj[col] = {
+          type: field.data_type_category === "numerical" || field.data_type_category === "continuous" 
+            ? "number" 
+            : "string"
+        };
+      } else {
+        // Fallback
+        metadataObj[col] = { type: "string" };
+      }
+    });
+
+    return metadataObj;
+  }
+
   function buildUsersMetadata(columns: string[]) {
-    const metadataObj: any = {};
+    const metadataObj: Record<string, unknown> = {};
     
     // Field categories for aggregation rules (users table)
     const ID_FIELDS = ['user_key', 'user_id', 'email', 'first_device_id', 'last_device_id'];
@@ -218,7 +262,7 @@ export default function WebDataRocksPivot({
       
       if (fieldMeta) {
         // Map metadata type to WebDataRocks format
-        const metaConfig: any = {
+        const metaConfig: Record<string, unknown> = {
           type: fieldMeta.type,
           ...(fieldMeta.hierarchy && { hierarchy: fieldMeta.hierarchy }),
           ...(fieldMeta.parent && { parent: fieldMeta.parent })

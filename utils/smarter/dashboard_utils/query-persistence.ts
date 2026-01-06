@@ -1,113 +1,165 @@
 // utils/smarter/dashboard_utils/query-persistence.ts
 import { getLDClient } from "../../launchdarkly/client.ts";
 import { trackInteraction } from "../../launchdarkly/events.ts";
+import type { ChartConfig } from "../autovisualization_dashboard/chart-generator.ts";
 
-export interface SavedQuery {
+export interface PinnedItem {
   id: string;
+  tableName: string;
   sql: string;
   prompt: string;
-  table: "sessions" | "users";
-  dimensions: string[];
-  measures: string[];
-  results?: any[];
+  explanation: string;
+  config: ChartConfig;
   timestamp: number;
-  resultCount?: number;
 }
 
-const SESSION_KEY = "session_queries";
-const INDEXED_DB_NAME = "dasgata_queries";
-const INDEXED_DB_VERSION = 1;
-const STORE_NAME = "queries";
+/**
+ * SavedQuery is a compatibility type for older components
+ */
+export type SavedQuery = PinnedItem & {
+  table: string;
+  dimensions: string[];
+  measures: string[];
+  resultCount?: number;
+};
+
+const INDEXED_DB_NAME = "gata_analytical_persistence";
+const INDEXED_DB_VERSION = 2; // Bump version for new schema
+const STORE_NAME = "pinned_items";
 
 /**
- * Save a query to storage (session or IndexedDB based on flag)
+ * Save a pinned item to storage (session or IndexedDB based on flag)
  */
-export async function saveQuery(query: SavedQuery): Promise<boolean> {
+export async function savePinnedItem(item: PinnedItem): Promise<boolean> {
   const client = getLDClient();
   const canPersist = client?.variation("smarter-query-persistence", false);
   
   if (canPersist) {
-    // Save to IndexedDB
-    await saveToIndexedDB(query);
+    await saveToIndexedDB(item);
     
-    trackInteraction("click", "save_query", "query_builder", "QueryPersistence", {
+    trackInteraction("click", "pin_item", "dashboard", "QueryPersistence", {
       plan: "smarter",
-      value: "persist",
       storageType: "indexeddb",
-      queryId: query.id
+      tableName: item.tableName
     });
     
     return true;
   } else {
-    // Save to sessionStorage only
-    const queries = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "[]");
-    queries.push(query);
-    
-    // Keep only last 10 queries in session storage
-    const limitedQueries = queries.slice(-10);
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(limitedQueries));
-    
-    trackInteraction("click", "save_query", "query_builder", "QueryPersistence", {
-      plan: "smarter",
-      value: "session_only",
-      storageType: "sessionStorage",
-      queryId: query.id
-    });
-    
+    // Session storage fallback for non-premium
+    const key = `pins_${item.tableName}`;
+    const items = JSON.parse(sessionStorage.getItem(key) || "[]");
+    items.push(item);
+    sessionStorage.setItem(key, JSON.stringify(items.slice(-10))); // Limit session-only storage
     return false;
   }
 }
 
 /**
- * Load all saved queries
+ * Load all pinned items for a table
+ */
+export async function loadPinnedItems(tableName: string): Promise<PinnedItem[]> {
+  const client = getLDClient();
+  const canPersist = client?.variation("smarter-query-persistence", false);
+  
+  if (canPersist) {
+    const all = await loadFromIndexedDB();
+    return all.filter(item => item.tableName === tableName);
+  } else {
+    return JSON.parse(sessionStorage.getItem(`pins_${tableName}`) || "[]");
+  }
+}
+
+/**
+ * Delete a pinned item
+ */
+export async function deletePinnedItem(itemId: string, tableName: string): Promise<void> {
+  const client = getLDClient();
+  const canPersist = client?.variation("smarter-query-persistence", false);
+  
+  if (canPersist) {
+    await deleteFromIndexedDB(itemId);
+  } else {
+    const key = `pins_${tableName}`;
+    const items = JSON.parse(sessionStorage.getItem(key) || "[]");
+    const filtered = items.filter((i: PinnedItem) => i.id !== itemId);
+    sessionStorage.setItem(key, JSON.stringify(filtered));
+  }
+}
+
+/**
+ * Compatibility wrapper for loading all queries
  */
 export async function loadQueries(): Promise<SavedQuery[]> {
   const client = getLDClient();
   const canPersist = client?.variation("smarter-query-persistence", false);
   
+  let items: PinnedItem[] = [];
   if (canPersist) {
-    return await loadFromIndexedDB();
+    items = await loadFromIndexedDB();
   } else {
-    return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "[]");
+    // Collect from all keys in session storage that match the pattern
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith("pins_")) {
+        const tableItems = JSON.parse(sessionStorage.getItem(key) || "[]");
+        items = [...items, ...tableItems];
+      }
+    }
   }
+
+  return items.map(item => ({
+    ...item,
+    table: item.tableName,
+    dimensions: item.config.xKey ? [item.config.xKey] : [],
+    measures: item.config.yKeys || [],
+    resultCount: item.config.data?.length
+  }));
 }
 
 /**
- * Delete a saved query
+ * Compatibility wrapper for deleting a query by ID only
  */
-export async function deleteQuery(queryId: string): Promise<void> {
+export async function deleteQuery(itemId: string): Promise<void> {
   const client = getLDClient();
   const canPersist = client?.variation("smarter-query-persistence", false);
   
   if (canPersist) {
-    await deleteFromIndexedDB(queryId);
+    await deleteFromIndexedDB(itemId);
   } else {
-    const queries = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "[]");
-    const filtered = queries.filter((q: SavedQuery) => q.id !== queryId);
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(filtered));
+    // Search and remove from all session storage bins
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith("pins_")) {
+        const items = JSON.parse(sessionStorage.getItem(key) || "[]");
+        const filtered = items.filter((item: PinnedItem) => item.id !== itemId);
+        sessionStorage.setItem(key, JSON.stringify(filtered));
+      }
+    }
   }
-  
-  trackInteraction("click", "delete_query", "query_list", "QueryPersistence", {
-    plan: "smarter",
-    queryId
-  });
 }
 
 /**
- * Clear all saved queries
+ * Clear all persistence for the current user
  */
 export async function clearAllQueries(): Promise<void> {
-  const client = getLDClient();
-  const canPersist = client?.variation("smarter-query-persistence", false);
-  
-  if (canPersist) {
-    await clearIndexedDB();
-  } else {
-    sessionStorage.removeItem(SESSION_KEY);
-  }
-  
-  trackInteraction("click", "clear_all_queries", "query_list", "QueryPersistence", {
-    plan: "smarter"
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.clear();
+    
+    request.onsuccess = () => {
+      // Also clear session storage bins
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith("pins_")) {
+          sessionStorage.removeItem(key);
+        }
+      }
+      resolve();
+    };
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => db.close();
   });
 }
 
@@ -122,81 +174,56 @@ function openDB(): Promise<IDBDatabase> {
     
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+        store.createIndex("tableName", "tableName", { unique: false });
         store.createIndex("timestamp", "timestamp", { unique: false });
       }
     };
   });
 }
 
-async function saveToIndexedDB(query: SavedQuery): Promise<void> {
+async function saveToIndexedDB(item: PinnedItem): Promise<void> {
   const db = await openDB();
-  
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], "readwrite");
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.put(query);
-    
+    const request = store.put(item);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
-    
     transaction.oncomplete = () => db.close();
   });
 }
 
-async function loadFromIndexedDB(): Promise<SavedQuery[]> {
+async function loadFromIndexedDB(): Promise<PinnedItem[]> {
   try {
     const db = await openDB();
-    
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([STORE_NAME], "readonly");
       const store = transaction.objectStore(STORE_NAME);
       const request = store.getAll();
-      
       request.onsuccess = () => {
-        const queries = request.result as SavedQuery[];
-        // Sort by timestamp descending (newest first)
-        queries.sort((a, b) => b.timestamp - a.timestamp);
-        resolve(queries);
+        const items = request.result as PinnedItem[];
+        items.sort((a, b) => b.timestamp - a.timestamp);
+        resolve(items);
       };
       request.onerror = () => reject(request.error);
-      
       transaction.oncomplete = () => db.close();
     });
   } catch (error) {
-    console.error("Error loading from IndexedDB:", error);
+    console.error("IndexedDB load failed", error);
     return [];
   }
 }
 
-async function deleteFromIndexedDB(queryId: string): Promise<void> {
+async function deleteFromIndexedDB(itemId: string): Promise<void> {
   const db = await openDB();
-  
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORE_NAME], "readwrite");
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete(queryId);
-    
+    const request = store.delete(itemId);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
-    
-    transaction.oncomplete = () => db.close();
-  });
-}
-
-async function clearIndexedDB(): Promise<void> {
-  const db = await openDB();
-  
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE_NAME], "readwrite");
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.clear();
-    
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-    
     transaction.oncomplete = () => db.close();
   });
 }

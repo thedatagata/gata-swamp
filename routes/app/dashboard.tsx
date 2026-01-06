@@ -3,9 +3,6 @@ import { PageProps, Handlers } from "$fresh/server.ts";
 import DashboardRouter from "../../islands/onboarding/DashboardRouter.tsx";
 import { getSession } from "../../utils/models/session.ts";
 import { getUser } from "../../utils/models/user.ts";
-import { getVariation } from "../../utils/launchdarkly/server.ts";
-import { FLAGS } from "../../utils/launchdarkly/flags.ts";
-import { buildUserContext } from "../../utils/launchdarkly/context-builder.ts";
 
 interface DashboardData {
   motherDuckToken: string;
@@ -13,14 +10,11 @@ interface DashboardData {
   ldClientId?: string;
   isAllowed: boolean;
   email?: string;
-  userPlan: "free" | "premium";
-  aiAnalystUnlocked: boolean;
-  aiAddonUnlocked: boolean;
 }
 
 export const handler: Handlers<DashboardData> = {
   async GET(_req, ctx) {
-    const sessionId = (ctx.state as any).sessionId as string | undefined;
+    const sessionId = ctx.state.sessionId as string | undefined;
     
     // 1. Check Authentication
     if (!sessionId) {
@@ -39,35 +33,29 @@ export const handler: Handlers<DashboardData> = {
       });
     }
 
-    // 2. Get full user record for model tier preference
+    // 2. Get full user record
     const user = await getUser(session.username);
-    const preferredModelTier = user?.preferred_model_tier || "3b";
-
-    // 3. Check Allowlist via LaunchDarkly
-    // If user has a linked demo email, use that for the allowlist check
-    const allowlistKey = user?.demoEmail || session.username;
-    const context = buildUserContext(allowlistKey, preferredModelTier);
-    const isAllowed = await getVariation(context, FLAGS.DEMO_ACCESS_ALLOWLIST, false);
 
     const motherDuckToken = Deno.env.get("MOTHERDUCK_TOKEN") || "";
     const ldClientId = Deno.env.get("LAUNCHDARKLY_CLIENT_ID");
     
+    // In the new auth flow, being logged in is enough to access the dashboard.
+    // Further feature gating (like S3/GCS) will be handled by plan_tier or other flags.
+    const isAllowed = true;
+
     // SECURITY: Only pass the token if the user is allowed
     return ctx.render({ 
-      motherDuckToken: isAllowed ? motherDuckToken : "", 
+      motherDuckToken, 
       sessionId,
       ldClientId,
       isAllowed,
-      email: session.username,
-      userPlan: user?.plan_tier || "free",
-      aiAnalystUnlocked: user?.ai_analyst_unlocked || false,
-      aiAddonUnlocked: user?.ai_addon_unlocked || false
+      email: user?.email || session.username,
     });
   }
 };
 
 export default function DashboardPage({ data }: PageProps<DashboardData>) {
-  const { motherDuckToken, sessionId, ldClientId, isAllowed, email, userPlan, aiAnalystUnlocked, aiAddonUnlocked } = data;
+  const { motherDuckToken, sessionId, ldClientId, isAllowed, email } = data;
 
   // 1. Access Denied State
   if (!isAllowed) {
@@ -124,9 +112,6 @@ export default function DashboardPage({ data }: PageProps<DashboardData>) {
       motherDuckToken={motherDuckToken}
       sessionId={sessionId}
       ldClientId={ldClientId}
-      userPlan={userPlan}
-      aiAnalystUnlocked={aiAnalystUnlocked}
-      aiAddonUnlocked={aiAddonUnlocked}
     />
   );
 }

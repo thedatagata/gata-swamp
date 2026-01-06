@@ -1,5 +1,5 @@
 // utils/smarter/query-response-analyzer.ts
-import { getSemanticMetadata, type FieldMetadata } from "./semantic-config.ts";
+import { getSemanticMetadata } from "./semantic-config.ts";
 
 /**
  * Categorized dimensions for smart visualization
@@ -32,7 +32,7 @@ export interface VisualizationSpec {
     type: "bar" | "line" | "area" | "pie" | "funnel" | "scatter" | "heatmap";
     priority: number;
     reason: string;
-    config?: any;
+    config?: Record<string, unknown>;
   }>;
   dimensionCategories: CategorizedDimensions;
   measureCategories: CategorizedMeasures;
@@ -43,7 +43,7 @@ export interface VisualizationSpec {
 export class QueryResponseAnalyzer {
   private metadata = getSemanticMetadata();
 
-  constructor(table?: "sessions" | "users") {
+  constructor(table?: string) {
     this.metadata = getSemanticMetadata(table);
   }
 
@@ -96,40 +96,51 @@ export class QueryResponseAnalyzer {
   /**
    * Categorize dimensions based on metadata
    */
-  private categorizeDimensions(dimensions: string[]): CategorizedDimensions {
+  private categorizeDimensions(dimensionAliases: string[]): CategorizedDimensions {
     const temporal: string[] = [];
     const sequential: string[] = [];
     const categorical: string[] = [];
     const binary: string[] = [];
 
-    dimensions.forEach(dim => {
-      const dimConfig = this.metadata.dimensions[dim];
-      if (!dimConfig) return;
+    dimensionAliases.forEach(alias => {
+      // Find the source column for this alias
+      let sourceColumn: string | null = null;
+      let dimConfig: { sort?: string; transformation?: string | null } | null = null;
 
-      const field = this.metadata.fields[dimConfig.column];
+      for (const [col, config] of Object.entries(this.metadata.dimensions)) {
+        if (config.alias_name === alias) {
+          sourceColumn = col;
+          dimConfig = config as { sort?: string; transformation?: string | null };
+          break;
+        }
+      }
+
+      if (!sourceColumn || !dimConfig) return;
+
+      const field = this.metadata.fields[sourceColumn];
       if (!field) return;
 
       // Temporal - check if dimension name or field type indicates time
-      if (dim.includes('date') || dim.includes('time') || dim.includes('month') || dim.includes('weekday') || 
+      if (alias.includes('date') || alias.includes('time') || alias.includes('month') || alias.includes('weekday') || 
           field.md_data_type === 'DATE' || field.md_data_type.includes('TIMESTAMP')) {
-        temporal.push(dim);
+        temporal.push(alias);
       }
       // Sequential (ordinal with custom sort indicating order)
       else if (dimConfig.sort?.startsWith("custom:")) {
-        sequential.push(dim);
+        sequential.push(alias);
       }
       // Binary (has transformation and likely 2 members)
       else if (dimConfig.transformation && (
         field.md_data_type === 'BOOLEAN' || 
         field.md_data_type === 'INTEGER' ||
-        dim.includes('is_') ||
-        dim.includes('has_')
+        alias.includes('is_') ||
+        alias.includes('has_')
       )) {
-        binary.push(dim);
+        binary.push(alias);
       }
       // Categorical
       else if (field.data_type_category === "categorical" || field.members) {
-        categorical.push(dim);
+        categorical.push(alias);
       }
     });
 
@@ -331,6 +342,6 @@ export class QueryResponseAnalyzer {
 /**
  * Factory function
  */
-export function createQueryAnalyzer(table?: "sessions" | "users"): QueryResponseAnalyzer {
+export function createQueryAnalyzer(table?: string): QueryResponseAnalyzer {
   return new QueryResponseAnalyzer(table);
 }

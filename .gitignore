@@ -5,6 +5,7 @@
 .env.production.local
 .env.local
 .env*.local
+.agent
 
 # Deno
 .deno/

@@ -15,6 +15,7 @@ import * as $api_auth_login from "./routes/api/auth/login.ts";
 import * as $api_auth_logout from "./routes/api/auth/logout.ts";
 import * as $api_auth_me from "./routes/api/auth/me.ts";
 import * as $api_auth_signup from "./routes/api/auth/signup.ts";
+import * as $api_connections_index from "./routes/api/connections/index.ts";
 import * as $api_demo_access from "./routes/api/demo/access.ts";
 import * as $api_demo_check_email from "./routes/api/demo/check-email.ts";
 import * as $api_demo_create_account from "./routes/api/demo/create-account.ts";
@@ -27,35 +28,40 @@ import * as $api_user_context from "./routes/api/user/context.ts";
 import * as $app_dashboard from "./routes/app/dashboard.tsx";
 import * as $app_index from "./routes/app/index.tsx";
 import * as $app_loading from "./routes/app/loading.tsx";
+import * as $auth_google_callback from "./routes/auth/google/callback.ts";
+import * as $auth_google_signin from "./routes/auth/google/signin.ts";
 import * as $auth_signin from "./routes/auth/signin.tsx";
 import * as $checkout from "./routes/checkout.tsx";
 import * as $demo_setup from "./routes/demo/setup.tsx";
 import * as $health from "./routes/health.ts";
 import * as $index from "./routes/index.tsx";
+import * as $CapabilityMatrix from "./islands/CapabilityMatrix.tsx";
 import * as $ContextSwitcher from "./islands/ContextSwitcher.tsx";
+import * as $ExperienceSection from "./islands/ExperienceSection.tsx";
 import * as $HeroFeature from "./islands/HeroFeature.tsx";
+import * as $MarketingHero from "./islands/MarketingHero.tsx";
+import * as $SolutionShowcase from "./islands/SolutionShowcase.tsx";
 import * as $admin_AdminLogin from "./islands/admin/AdminLogin.tsx";
 import * as $admin_DemoUserManagement from "./islands/admin/DemoUserManagement.tsx";
+import * as $app_utils_FileUploader from "./islands/app_utils/FileUploader.tsx";
 import * as $app_utils_ScrollToTop from "./islands/app_utils/ScrollToTop.tsx";
+import * as $app_utils_SemanticProfiler from "./islands/app_utils/SemanticProfiler.tsx";
 import * as $auth_AuthModal from "./islands/auth/AuthModal.tsx";
 import * as $auth_LoginFlow from "./islands/auth/LoginFlow.tsx";
 import * as $charts_AutoChart from "./islands/charts/AutoChart.tsx";
 import * as $charts_FunnelChart from "./islands/charts/FunnelChart.tsx";
+import * as $dashboard_CloudConnectionManager from "./islands/dashboard/CloudConnectionManager.tsx";
+import * as $dashboard_shared_WebDataRocksPivot from "./islands/dashboard/shared/WebDataRocksPivot.tsx";
 import * as $dashboard_smarter_dashboard_CacheManagementModal from "./islands/dashboard/smarter_dashboard/CacheManagementModal.tsx";
+import * as $dashboard_smarter_dashboard_CustomDataDashboard from "./islands/dashboard/smarter_dashboard/CustomDataDashboard.tsx";
+import * as $dashboard_smarter_dashboard_CustomPivotDashboard from "./islands/dashboard/smarter_dashboard/CustomPivotDashboard.tsx";
 import * as $dashboard_smarter_dashboard_SmartDashLoadingPage from "./islands/dashboard/smarter_dashboard/SmartDashLoadingPage.tsx";
-import * as $dashboard_smarter_dashboard_dashboard_landing_view_LandingOverview from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx";
-import * as $dashboard_smarter_dashboard_dashboard_landing_view_SessionDetailsDashboard from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/SessionDetailsDashboard.tsx";
-import * as $dashboard_smarter_dashboard_dashboard_landing_view_UserDetailsDashboard from "./islands/dashboard/smarter_dashboard/dashboard_landing_view/UserDetailsDashboard.tsx";
 import * as $dashboard_smarter_dashboard_semantic_dashboard_AutoVisualizationExperience from "./islands/dashboard/smarter_dashboard/semantic_dashboard/AutoVisualizationExperience.tsx";
 import * as $dashboard_smarter_dashboard_semantic_dashboard_SavedQueries from "./islands/dashboard/smarter_dashboard/semantic_dashboard/SavedQueries.tsx";
-import * as $dashboard_starter_dashboard_BaseDashboardWizard from "./islands/dashboard/starter_dashboard/BaseDashboardWizard.tsx";
-import * as $dashboard_starter_dashboard_FieldCatalog from "./islands/dashboard/starter_dashboard/FieldCatalog.tsx";
-import * as $dashboard_starter_dashboard_WebDataRocksPivot from "./islands/dashboard/starter_dashboard/WebDataRocksPivot.tsx";
-import * as $dashboard_starter_dashboard_data_utils from "./islands/dashboard/starter_dashboard/data-utils.ts";
 import * as $demo_DemoSetup from "./islands/demo/DemoSetup.tsx";
 import * as $onboarding_DashboardRouter from "./islands/onboarding/DashboardRouter.tsx";
-import * as $onboarding_PlanSelection from "./islands/onboarding/PlanSelection.tsx";
-import * as $onboarding_SignupFlow from "./islands/onboarding/SignupFlow.tsx";
+import * as $onboarding_DashboardSeeder from "./islands/onboarding/DashboardSeeder.tsx";
+import * as $onboarding_ExperienceGateway from "./islands/onboarding/ExperienceGateway.tsx";
 import type { Manifest } from "$fresh/server.ts";
 
 const manifest = {
@@ -73,6 +79,7 @@ const manifest = {
     "./routes/api/auth/logout.ts": $api_auth_logout,
     "./routes/api/auth/me.ts": $api_auth_me,
     "./routes/api/auth/signup.ts": $api_auth_signup,
+    "./routes/api/connections/index.ts": $api_connections_index,
     "./routes/api/demo/access.ts": $api_demo_access,
     "./routes/api/demo/check-email.ts": $api_demo_check_email,
     "./routes/api/demo/create-account.ts": $api_demo_create_account,
@@ -85,6 +92,8 @@ const manifest = {
     "./routes/app/dashboard.tsx": $app_dashboard,
     "./routes/app/index.tsx": $app_index,
     "./routes/app/loading.tsx": $app_loading,
+    "./routes/auth/google/callback.ts": $auth_google_callback,
+    "./routes/auth/google/signin.ts": $auth_google_signin,
     "./routes/auth/signin.tsx": $auth_signin,
     "./routes/checkout.tsx": $checkout,
     "./routes/demo/setup.tsx": $demo_setup,
@@ -92,40 +101,39 @@ const manifest = {
     "./routes/index.tsx": $index,
   },
   islands: {
+    "./islands/CapabilityMatrix.tsx": $CapabilityMatrix,
     "./islands/ContextSwitcher.tsx": $ContextSwitcher,
+    "./islands/ExperienceSection.tsx": $ExperienceSection,
     "./islands/HeroFeature.tsx": $HeroFeature,
+    "./islands/MarketingHero.tsx": $MarketingHero,
+    "./islands/SolutionShowcase.tsx": $SolutionShowcase,
     "./islands/admin/AdminLogin.tsx": $admin_AdminLogin,
     "./islands/admin/DemoUserManagement.tsx": $admin_DemoUserManagement,
+    "./islands/app_utils/FileUploader.tsx": $app_utils_FileUploader,
     "./islands/app_utils/ScrollToTop.tsx": $app_utils_ScrollToTop,
+    "./islands/app_utils/SemanticProfiler.tsx": $app_utils_SemanticProfiler,
     "./islands/auth/AuthModal.tsx": $auth_AuthModal,
     "./islands/auth/LoginFlow.tsx": $auth_LoginFlow,
     "./islands/charts/AutoChart.tsx": $charts_AutoChart,
     "./islands/charts/FunnelChart.tsx": $charts_FunnelChart,
+    "./islands/dashboard/CloudConnectionManager.tsx": $dashboard_CloudConnectionManager,
+    "./islands/dashboard/shared/WebDataRocksPivot.tsx": $dashboard_shared_WebDataRocksPivot,
     "./islands/dashboard/smarter_dashboard/CacheManagementModal.tsx":
       $dashboard_smarter_dashboard_CacheManagementModal,
+    "./islands/dashboard/smarter_dashboard/CustomDataDashboard.tsx":
+      $dashboard_smarter_dashboard_CustomDataDashboard,
+    "./islands/dashboard/smarter_dashboard/CustomPivotDashboard.tsx":
+      $dashboard_smarter_dashboard_CustomPivotDashboard,
     "./islands/dashboard/smarter_dashboard/SmartDashLoadingPage.tsx":
       $dashboard_smarter_dashboard_SmartDashLoadingPage,
-    "./islands/dashboard/smarter_dashboard/dashboard_landing_view/LandingOverview.tsx":
-      $dashboard_smarter_dashboard_dashboard_landing_view_LandingOverview,
-    "./islands/dashboard/smarter_dashboard/dashboard_landing_view/SessionDetailsDashboard.tsx":
-      $dashboard_smarter_dashboard_dashboard_landing_view_SessionDetailsDashboard,
-    "./islands/dashboard/smarter_dashboard/dashboard_landing_view/UserDetailsDashboard.tsx":
-      $dashboard_smarter_dashboard_dashboard_landing_view_UserDetailsDashboard,
     "./islands/dashboard/smarter_dashboard/semantic_dashboard/AutoVisualizationExperience.tsx":
       $dashboard_smarter_dashboard_semantic_dashboard_AutoVisualizationExperience,
     "./islands/dashboard/smarter_dashboard/semantic_dashboard/SavedQueries.tsx":
       $dashboard_smarter_dashboard_semantic_dashboard_SavedQueries,
-    "./islands/dashboard/starter_dashboard/BaseDashboardWizard.tsx":
-      $dashboard_starter_dashboard_BaseDashboardWizard,
-    "./islands/dashboard/starter_dashboard/FieldCatalog.tsx":
-      $dashboard_starter_dashboard_FieldCatalog,
-    "./islands/dashboard/starter_dashboard/WebDataRocksPivot.tsx":
-      $dashboard_starter_dashboard_WebDataRocksPivot,
-    "./islands/dashboard/starter_dashboard/data-utils.ts": $dashboard_starter_dashboard_data_utils,
     "./islands/demo/DemoSetup.tsx": $demo_DemoSetup,
     "./islands/onboarding/DashboardRouter.tsx": $onboarding_DashboardRouter,
-    "./islands/onboarding/PlanSelection.tsx": $onboarding_PlanSelection,
-    "./islands/onboarding/SignupFlow.tsx": $onboarding_SignupFlow,
+    "./islands/onboarding/DashboardSeeder.tsx": $onboarding_DashboardSeeder,
+    "./islands/onboarding/ExperienceGateway.tsx": $onboarding_ExperienceGateway,
   },
   baseUrl: import.meta.url,
 } satisfies Manifest;

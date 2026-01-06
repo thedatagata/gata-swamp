@@ -2,6 +2,7 @@
 .git
 .gitignore
 .github
+.agent
 
 # Dependencies (will be installed in container)
 node_modules

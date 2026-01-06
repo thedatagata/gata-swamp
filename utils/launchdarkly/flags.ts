@@ -23,7 +23,13 @@ export const FLAGS = {
   // Access Control
   DEMO_ACCESS_ALLOWLIST: "demo-access-allowlist",
   DEMO_QUERY_LIMIT: "demo-query-limit",
+  
+  // Guarded Rollouts
+  DUCKDB_LOCAL_FILE_UPLOAD: "duckdb-local-file-upload",
+  CUSTOM_DATA_ONBOARDING_ENABLED: "custom-data-onboarding-enabled",
 } as const;
+
+
 
 // Type for flag values to ensure type safety
 export interface FlagValues {
@@ -35,4 +41,8 @@ export interface FlagValues {
   [FLAGS.DATA_LIMIT]: number;
   [FLAGS.DEMO_ACCESS_ALLOWLIST]: boolean;
   [FLAGS.DEMO_QUERY_LIMIT]: number;
+  [FLAGS.DUCKDB_LOCAL_FILE_UPLOAD]: boolean;
+  [FLAGS.CUSTOM_DATA_ONBOARDING_ENABLED]: boolean;
 }
+
+

@@ -1,6 +1,7 @@
-// Import metadata files directly (works in both server and client)
 import sessionsMetadataJson from "../../../static/smarter/semantic-sessions-metadata.json" with { type: "json" };
 import usersMetadataJson from "../../../static/smarter/semantic-users-metadata.json" with { type: "json" };
+import { SemanticLayer } from "../../system/semantic-profiler.ts";
+
 
 // Type definitions for semantic metadata
 export interface SemanticMetadata {
@@ -13,32 +14,70 @@ export interface SemanticMetadata {
       ingest_data_type: string;
       sanitize: boolean;
       data_type_category: string;
-      members: any;
+      members: unknown;
     };
   };
   dimensions: {
     [key: string]: {
       alias_name: string;
       transformation: string | null;
+      sort?: string;
+      members?: string[];
     };
   };
   measures: {
     [key: string]: {
-      aggregations?: any[];
-      formula?: any;
+      aggregations?: Record<string, unknown>[];
+      formula?: Record<string, unknown>;
       description?: string;
     };
   };
 }
 
+// In-memory cache for custom semantic metadata (browser-side)
+const customMetadataCache: Record<string, SemanticMetadata> = {};
+
+/**
+ * Register custom semantic metadata for a table
+ */
+export function registerCustomMetadata(metadata: SemanticLayer | SemanticMetadata) {
+  // Convert SemanticLayer to SemanticMetadata format
+  const mapped: SemanticMetadata = {
+    table: metadata.table,
+    description: metadata.description,
+    fields: metadata.fields,
+    dimensions: metadata.dimensions,
+    measures: metadata.measures
+  };
+  customMetadataCache[metadata.table] = mapped;
+  console.log(`✅ Registered custom semantic metadata for table: ${metadata.table}`);
+}
+
 /**
  * Get semantic metadata for a table
- * Metadata is imported directly from JSON files, works in both server and client contexts
  */
-export function getSemanticMetadata(table?: "sessions" | "users"): SemanticMetadata {
+export function getSemanticMetadata(table?: string): SemanticMetadata {
   const selectedTable = table || "sessions";
-  return selectedTable === "sessions" ? sessionsMetadataJson : usersMetadataJson;
+  if (selectedTable === "sessions") return sessionsMetadataJson as unknown as SemanticMetadata;
+  if (selectedTable === "users") return usersMetadataJson as unknown as SemanticMetadata;
+  
+  // Check custom cache
+  if (customMetadataCache[selectedTable]) {
+    return customMetadataCache[selectedTable];
+  }
+
+  // Fallback to sessions if not found but requested
+  return sessionsMetadataJson as unknown as SemanticMetadata;
 }
+
+/**
+ * Get all table names that have semantic metadata
+ */
+export function getAllRegisteredTables(): string[] {
+  return ["sessions", "users", ...Object.keys(customMetadataCache)];
+}
+
+
 
 // =============================================================================
 // METADATA EXTRACTION FUNCTIONS
@@ -48,7 +87,7 @@ export function getSemanticMetadata(table?: "sessions" | "users"): SemanticMetad
  * Extract all dimension alias names from metadata
  * These are what users/LLM should use in queries
  */
-export function extractAllDimensionNames(table?: "sessions" | "users"): string[] {
+export function extractAllDimensionNames(table?: string): string[] {
   const metadata = getSemanticMetadata(table);
   return Object.values(metadata.dimensions).map(dim => dim.alias_name);
 }
@@ -57,15 +96,15 @@ export function extractAllDimensionNames(table?: "sessions" | "users"): string[]
  * Extract all measure alias names from metadata
  * Includes both aggregation aliases and formula keys
  */
-export function extractAllMeasureNames(table?: "sessions" | "users"): string[] {
+export function extractAllMeasureNames(table?: string): string[] {
   const metadata = getSemanticMetadata(table);
   const measureNames: string[] = [];
   
-  Object.entries(metadata.measures).forEach(([baseField, config]) => {
+  Object.entries(metadata.measures).forEach(([_baseField, config]) => {
     // Extract aggregation aliases
     if (config.aggregations && Array.isArray(config.aggregations)) {
-      config.aggregations.forEach((aggObj: any) => {
-        const aggConfig = Object.values(aggObj)[0] as any;
+      config.aggregations.forEach((aggObj) => {
+        const aggConfig = Object.values(aggObj)[0] as { alias?: string };
         if (aggConfig.alias) {
           measureNames.push(aggConfig.alias);
         }
@@ -86,7 +125,7 @@ export function extractAllMeasureNames(table?: "sessions" | "users"): string[] {
 /**
  * Find dimension source column and definition by alias name
  */
-export function findDimensionByAlias(aliasName: string, table?: "sessions" | "users"): {
+export function findDimensionByAlias(aliasName: string, table?: string): {
   sourceColumn: string;
   aliasName: string;
   transformation: string | null;
@@ -113,7 +152,7 @@ export function findDimensionByAlias(aliasName: string, table?: "sessions" | "us
  * Find measure source column and definition by alias name
  * Returns the aggregation type and base column, or formula SQL
  */
-export function findMeasureByAlias(aliasName: string, table?: "sessions" | "users"): {
+export function findMeasureByAlias(aliasName: string, table?: string): {
   type: 'aggregation' | 'formula';
   sourceColumn: string;
   aggregationType?: string;  // sum, avg, count, etc.
@@ -130,7 +169,12 @@ export function findMeasureByAlias(aliasName: string, table?: "sessions" | "user
     if (measureConfig.aggregations && Array.isArray(measureConfig.aggregations)) {
       for (const aggObj of measureConfig.aggregations) {
         const aggType = Object.keys(aggObj)[0];
-        const aggConfig = aggObj[aggType];
+        const aggConfig = aggObj[aggType] as { 
+          alias: string; 
+          format?: string; 
+          decimals?: number; 
+          currency?: string 
+        };
         
         if (aggConfig.alias === aliasName) {
           return {
@@ -148,7 +192,14 @@ export function findMeasureByAlias(aliasName: string, table?: "sessions" | "user
     
     // Check formulas
     if (measureConfig.formula && typeof measureConfig.formula === 'object') {
-      const formulaConfig = measureConfig.formula[aliasName];
+      const formulaConfig = measureConfig.formula[aliasName] as {
+        sql: string;
+        description?: string;
+        format?: string;
+        decimals?: number;
+        currency?: string;
+      } | undefined;
+      
       if (formulaConfig) {
         return {
           type: 'formula',
@@ -169,7 +220,7 @@ export function findMeasureByAlias(aliasName: string, table?: "sessions" | "user
 /**
  * Get dimension description by alias for display
  */
-export function getDimensionDescription(aliasName: string, table?: "sessions" | "users"): string | null {
+export function getDimensionDescription(aliasName: string, table?: string): string | null {
   const dim = findDimensionByAlias(aliasName, table);
   return dim?.description || null;
 }
@@ -177,7 +228,7 @@ export function getDimensionDescription(aliasName: string, table?: "sessions" | 
 /**
  * Get measure description by alias for display
  */
-export function getMeasureDescription(aliasName: string, table?: "sessions" | "users"): string | null {
+export function getMeasureDescription(aliasName: string, table?: string): string | null {
   const measure = findMeasureByAlias(aliasName, table);
   return measure?.description || null;
 }
@@ -186,7 +237,7 @@ export function getMeasureDescription(aliasName: string, table?: "sessions" | "u
  * Generate comprehensive catalog for UI display
  * Returns alias names with descriptions and source mapping
  */
-export function generateDataCatalog(table?: "sessions" | "users"): {
+export function generateDataCatalog(table?: string): {
   dimensions: Array<{ 
     alias: string; 
     sourceColumn: string;
@@ -228,9 +279,9 @@ export function generateDataCatalog(table?: "sessions" | "users"): {
   Object.entries(metadata.measures).forEach(([sourceColumn, measureConfig]) => {
     // Add aggregations
     if (measureConfig.aggregations && Array.isArray(measureConfig.aggregations)) {
-      measureConfig.aggregations.forEach((aggObj: any) => {
+      measureConfig.aggregations.forEach((aggObj) => {
         const aggType = Object.keys(aggObj)[0];
-        const aggConfig = aggObj[aggType];
+        const aggConfig = aggObj[aggType] as { alias?: string };
         
         if (aggConfig.alias) {
           measures.push({
@@ -273,7 +324,7 @@ export function generateDataCatalog(table?: "sessions" | "users"): {
  * Generate comprehensive SQL generation prompt for LLM
  * Shows LLM how to translate alias names into SQL using source columns
  */
-export function generateSQLPrompt(table?: "sessions" | "users"): string {
+export function generateSQLPrompt(table?: string): string {
   const metadata = getSemanticMetadata(table);
   
   // Build dimension translation mappings
@@ -294,9 +345,9 @@ export function generateSQLPrompt(table?: "sessions" | "users"): string {
   Object.entries(metadata.measures).forEach(([sourceColumn, measureConfig]) => {
     // Add aggregations
     if (measureConfig.aggregations && Array.isArray(measureConfig.aggregations)) {
-      measureConfig.aggregations.forEach((aggObj: any) => {
+      measureConfig.aggregations.forEach((aggObj) => {
         const aggType = Object.keys(aggObj)[0];
-        const aggConfig = aggObj[aggType];
+        const aggConfig = aggObj[aggType] as { alias: string };
         const alias = aggConfig.alias;
         
         let sqlPattern = '';
@@ -335,66 +386,55 @@ export function generateSQLPrompt(table?: "sessions" | "users"): string {
     }
   });
 
-  return `You are a SQL generator for the ${metadata.table} table (DuckDB dialect).
-${metadata.description}
-
-USER SPEAKS IN ALIAS NAMES. YOU WRITE SQL USING SOURCE COLUMNS:
-
-DIMENSIONS (User says alias → You write SQL with source):
-${dimensionMappings.join('\n')}
-
-MEASURES (User says alias → You write SQL with aggregation):
-${measureMappings.join('\n')}
-
-DUCKDB SYNTAX RULES:
-1. Date arithmetic: date - INTERVAL '3 months' (NOT DATE_SUB with INTERVAL)
-2. Time intervals: '1 day', '7 days', '3 months', '1 year'
-3. Current date: CURRENT_DATE (for DATE columns)
-4. Current timestamp: CURRENT_TIMESTAMP (for TIMESTAMP columns)
-5. CASE statements: CASE WHEN condition THEN value ELSE other END
-6. Aggregations with conditions: SUM(CASE WHEN x = 1 THEN 1 ELSE 0 END)
-
-${metadata.table === 'session_facts' ? `SESSION-SPECIFIC EXAMPLES:
-- Last 30 days: WHERE session_date >= CURRENT_DATE - INTERVAL '30 days'
-- Specific month: WHERE session_date BETWEEN '2024-01-01' AND '2024-01-31'
-- Recent sessions: WHERE session_start_time > CURRENT_TIMESTAMP - INTERVAL '7 days'
-- Count events by stage: SUM(CASE WHEN max_lifecycle_stage = 'trial' THEN 1 ELSE 0 END)
-- Revenue range: WHERE session_revenue BETWEEN 10 AND 100` : `USER-SPECIFIC EXAMPLES:
-- Users in last 6 months: WHERE first_session_date >= CURRENT_DATE - INTERVAL '6 months'
-- Active recently: WHERE last_event_timestamp > CURRENT_DATE - INTERVAL '30 days'
-- Trial users: WHERE trial_status = 'active' OR trial_status = 'expired'
-- Sessions range: WHERE total_sessions BETWEEN 5 AND 20`}
-
-CRITICAL SQL RULES:
-1. User references = alias names (right side of arrow)
-2. Your SQL = source columns/transformations (left side of arrow)
-3. Always use FROM ${metadata.table}
-4. Return alias names with AS: SELECT source_col AS alias_name
-5. Uint8Array fields (0/1) in WHERE need explicit comparison: WHERE field = 1, NOT WHERE field
-6. If selecting a temporal field (date/time) as a dimension, ALWAYS add ORDER BY that field ASC
-7. Output ONLY valid SQL - no markdown, no explanations, no truncation
-
-CORRECT PATTERN:
-User: "avg_sessions_per_user by customer_type"
-SQL: SELECT 
-  CASE WHEN is_paying_customer = 1 THEN 'Paying' ELSE 'Free' END as customer_type,
-  AVG(total_sessions) as avg_sessions_per_user
-FROM ${metadata.table}
-GROUP BY customer_type`;
+  return `You are a specialized SQL Generator for DuckDB. Your task is to translate natural language into a VALID DuckDB SQL query for the "${metadata.table}" table.
+ 
+ ### 📜 TABLE CONTEXT
+ Table Name: "${metadata.table}"
+ Description: ${metadata.description}
+ 
+ ### 📋 STRICT RULES
+ 1. ONLY use columns and aliases listed in the MAPPING sections below.
+ 2. DO NOT hallucinate columns like "opportunity_owner", "total_amount", or "lead_source" unless they are explicitly in the mapping.
+ 3. All strings must use single quotes: 'direct'.
+ 4. For boolean columns, use TRUE/FALSE.
+ 5. For dates, use standard DuckDB syntax: session_date >= '2023-01-01' or session_date >= CURRENT_DATE - INTERVAL '30 days'.
+ 6. IMPORTANT: If the dataset appears to be historic (older than today), you may use (SELECT MAX(date_column) FROM table) as a base for relative calculations if requested to show "recent" or "last X days".
+ 7. If the user asks for "sessions" or "count of sessions", ALWAYS use the measure alias "session_count".
+ 8. If the user asks for "visitors", ALWAYS use the measure alias "unique_visitors".
+ 9. ALWAYS group by ALL non-aggregated columns if any aggregation is used.
+ 10. Refer to the table directly as "${metadata.table}".
+ 
+ ### 🏷️ DIMENSION MAPPING (User Alias → Your SQL Column/Transformation)
+ ${dimensionMappings.join('\n')}
+ 
+ ### 📊 MEASURE MAPPING (User Alias → Your SQL Aggregation/Formula)
+ ${measureMappings.join('\n')}
+ 
+ ### 📝 EXAMPLES
+ - "show me sessions by traffic source": SELECT traffic_source, COUNT(DISTINCT session_id) as session_count FROM ${metadata.table} GROUP BY 1
+ - "revenue in the last 7 days": SELECT SUM(session_revenue) as total_revenue FROM ${metadata.table} WHERE session_date >= CURRENT_DATE - INTERVAL '7 days'
+ 
+ RETURN A JSON OBJECT WITH:
+ {
+   "sql": "the raw SQL query",
+   "explanation": "concise 1-sentence explanation"
+ }
+ 
+ Generate the SQL for the following request:`;
 }
 
 /**
  * Legacy function - kept for backward compatibility
  * Use generateSQLPrompt instead for SQL generation
  */
-export function generatePivotWebLLMPrompt(table?: "sessions" | "users"): string {
+export function generatePivotWebLLMPrompt(table?: string): string {
   return generateSQLPrompt(table);
 }
 
 /**
  * Sanitize a single value (convert Uint8Array and BigInt to Number)
  */
-export function sanitizeValue(value: any): any {
+export function sanitizeValue(value: unknown): unknown {
   if (typeof value === 'bigint') {
     return Number(value);
   } else if (value instanceof Uint8Array) {
@@ -412,8 +452,8 @@ export function sanitizeValue(value: any): any {
 /**
  * Sanitize an entire row of data
  */
-export function sanitizeRow(row: Record<string, any>, metadata: SemanticMetadata): Record<string, any> {
-  const sanitized: Record<string, any> = {};
+export function sanitizeRow(row: Record<string, unknown>, _metadata: SemanticMetadata): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
   
   for (const [key, value] of Object.entries(row)) {
     sanitized[key] = sanitizeValue(value);

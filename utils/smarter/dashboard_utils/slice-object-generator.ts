@@ -1,15 +1,20 @@
-// utils/starter/slice-object-generator.ts
-import metadata from "../../static/starter/users-pivot-metadata.json" with { type: "json" };
+// utils/smarter/dashboard_utils/slice-object-generator.ts
+import metadata from "../../../static/starter/users-pivot-metadata.json" with { type: "json" };
+
+interface HierarchyField {
+  uniqueName: string;
+  [key: string]: unknown;
+}
 
 interface SliceObject {
-  rows?: Array<{ uniqueName: string; [key: string]: any }>;
-  columns?: Array<{ uniqueName: string; [key: string]: any }>;
+  rows?: HierarchyField[];
+  columns?: HierarchyField[];
   measures: Array<{
     uniqueName: string;
     aggregation: string;
     availableAggregations?: string[];
   }>;
-  reportFilters?: Array<{ uniqueName: string; [key: string]: any }>;
+  reportFilters?: HierarchyField[];
   expands?: { expandAll: boolean };
   drills?: { drillAll: boolean };
 }
@@ -57,15 +62,16 @@ export function categorizeColumns(columns: string[]): {
   const ids: string[] = [];
 
   columns.forEach(col => {
+    const meta = (metadata as Record<string, any>)[col];
     if (ID_FIELDS.includes(col)) {
       ids.push(col);
     } else if (SEQUENCE_FIELDS.includes(col)) {
       sequences.push(col);
     } else if (BINARY_FLAGS.includes(col)) {
       binaryFlags.push(col);
-    } else if ((metadata as any)[col]?.type === 'number') {
+    } else if (meta?.type === 'number') {
       measures.push(col);
-    } else if ((metadata as any)[col]?.type === 'level' || (metadata as any)[col]?.type === 'string') {
+    } else if (meta?.type === 'level' || meta?.type === 'string') {
       dimensions.push(col);
     } else {
       // Unknown field - treat as measure
@@ -129,9 +135,9 @@ export function generateSliceObject(queryColumns: string[]): SliceObject {
   const slice: SliceObject = {
     columns: [
       ...categorized.sequences.map(name => {
-        const obj: any = { uniqueName: name };
-        if (SORTED_FIELDS[name]) {
-          obj.sort = SORTED_FIELDS[name];
+        const obj: HierarchyField = { uniqueName: name };
+        if (name in SORTED_FIELDS) {
+          obj.sort = (SORTED_FIELDS as Record<string, string>)[name];
         }
         return obj;
       }),
@@ -139,16 +145,16 @@ export function generateSliceObject(queryColumns: string[]): SliceObject {
     ],
     rows: [
       ...categorized.dimensions.map(name => {
-        const obj: any = { uniqueName: name };
-        if (SORTED_FIELDS[name]) {
-          obj.sort = SORTED_FIELDS[name];
+        const obj: HierarchyField = { uniqueName: name };
+        if (name in SORTED_FIELDS) {
+          obj.sort = (SORTED_FIELDS as Record<string, string>)[name];
         }
         return obj;
       }),
       ...categorized.binaryFlags.map(name => {
-        const obj: any = { uniqueName: name };
-        if (SORTED_FIELDS[name]) {
-          obj.sort = SORTED_FIELDS[name];
+        const obj: HierarchyField = { uniqueName: name };
+        if (name in SORTED_FIELDS) {
+          obj.sort = (SORTED_FIELDS as Record<string, string>)[name];
         }
         return obj;
       })
@@ -161,7 +167,7 @@ export function generateSliceObject(queryColumns: string[]): SliceObject {
 
   // Check if any hierarchy fields are present
   const hasHierarchyFields = queryColumns.some(col => {
-    const meta = (metadata as any)[col];
+    const meta = (metadata as Record<string, any>)[col];
     return meta?.type === 'level';
   });
 
@@ -196,17 +202,17 @@ export function buildCustomSlice(config: {
 }): SliceObject {
   const slice: SliceObject = {
     rows: config.rows?.map(name => {
-      const obj: any = { uniqueName: name };
-      if (SORTED_FIELDS[name]) {
-        obj.sort = SORTED_FIELDS[name];
+      const obj: HierarchyField = { uniqueName: name };
+      if (name in SORTED_FIELDS) {
+        obj.sort = (SORTED_FIELDS as Record<string, string>)[name];
       }
       return obj;
     }),
     columns: [
       ...(config.columns?.map(name => {
-        const obj: any = { uniqueName: name };
-        if (SORTED_FIELDS[name]) {
-          obj.sort = SORTED_FIELDS[name];
+        const obj: HierarchyField = { uniqueName: name };
+        if (name in SORTED_FIELDS) {
+          obj.sort = (SORTED_FIELDS as Record<string, string>)[name];
         }
         return obj;
       }) || []),
@@ -225,7 +231,7 @@ export function buildCustomSlice(config: {
       ...(config.reportFilters || [])
     ];
     const hasHierarchyFields = allFields.some(col => {
-      const meta = (metadata as any)[col];
+      const meta = (metadata as Record<string, any>)[col];
       return meta?.type === 'level';
     });
 
@@ -248,14 +254,14 @@ export function buildCustomSlice(config: {
  * Get field info from metadata
  */
 export function getFieldMetadata(fieldName: string) {
-  return (metadata as any)[fieldName];
+  return (metadata as Record<string, any>)[fieldName];
 }
 
 /**
  * Check if field is a hierarchy level
  */
 export function isHierarchyField(fieldName: string): boolean {
-  const meta = (metadata as any)[fieldName];
+  const meta = (metadata as Record<string, any>)[fieldName];
   return meta?.type === 'level';
 }
 
