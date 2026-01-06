@@ -8,11 +8,13 @@ import dev from "$fresh/dev.ts";
 import config from "./fresh.config.ts";
 
 // Seed admin user on startup in dev mode
-try {
-  const { default: seedAdmin } = await import("./utils/scripts/seed_admin.ts");
-  await seedAdmin();
-} catch (e) {
-  console.error("Failed to seed admin:", e);
+if (Deno.env.get("BUILD_PHASE") !== "true") {
+  try {
+    const { default: seedAdmin } = await import("./utils/scripts/seed_admin.ts");
+    await seedAdmin();
+  } catch (e) {
+    console.error("Failed to seed admin:", e);
+  }
 }
 
 await dev(import.meta.url, "./main.ts", config);
