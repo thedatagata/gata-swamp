@@ -199,44 +199,56 @@ export async function profileTable(db: { query?: (sql: string) => Promise<unknow
     const isInteger = ['INT', 'HUGEINT'].some(t => colType.includes(t));
     const isFloat = ['FLOAT', 'DOUBLE', 'DECIMAL', 'REAL', 'NUMERIC'].some(t => colType.includes(t));
     const isNumeric = isInteger || isFloat;
-    const isDate = ['TIME', 'DATE', 'TIMESTAMP'].some(t => colType.includes(t));
+    const isDate = ['DATE', 'TIMESTAMP'].some(t => colType.includes(t));
+    const isTime = ['TIME'].some(t => colType.includes(t));
     const isId = colNameLower.endsWith('_id') || colNameLower.endsWith('id') || colNameLower.endsWith('_key') || colNameLower === 'id' || colNameLower === 'pk';
     
     // Check if it's a string that could be numeric or a date
     let isCastableToNumeric = false;
     let isCastableToDate = false;
+    let isCastableToTime = false;
 
-    if (!isNumeric && !isDate && (colType.includes('VARCHAR') || colType.includes('STRING'))) {
+    if (!isNumeric && !isDate && !isTime && (colType.includes('VARCHAR') || colType.includes('STRING'))) {
       try {
-        // 1. Check Numeric (Ensuring at least one non-null row exists)
-        const castCheck = await queryFn(`SELECT COUNT(*) > 0 AND COUNT(*) = COUNT(TRY_CAST("${colName}" AS DOUBLE)) as is_numeric FROM ${tableName} WHERE "${colName}" IS NOT NULL`);
-        const rowsN = getRows(castCheck);
-        isCastableToNumeric = !!(rowsN[0] as Record<string, unknown>)?.is_numeric;
+        // 0. Check strict time format (e.g. "6:44 PM", "18:44") to avoid confusion with Numerics or full Dates
+        // We use a regex check for common time formats
+        const timeCheck = await queryFn(`SELECT COUNT(*) > 0 AND COUNT(*) = COUNT(regexp_matches("${colName}", '^(?:(?:[01]?\\d|2[0-3]):[0-5]\\d(?:\\s?[AP]M)?)$')) as is_time FROM ${tableName} WHERE "${colName}" IS NOT NULL`);
+        const rowsT = getRows(timeCheck);
+        isCastableToTime = !!(rowsT[0] as Record<string, unknown>)?.is_time;
 
-        // 2. Check Date (if not numeric)
-        if (!isCastableToNumeric) {
-          // Standard DuckDB cast (usually YYYY-MM-DD)
-          const dateCheck = await queryFn(`SELECT COUNT(*) > 0 AND COUNT(*) = COUNT(TRY_CAST("${colName}" AS DATE)) as is_date FROM ${tableName} WHERE "${colName}" IS NOT NULL`);
-          const rowsD = getRows(dateCheck);
-          isCastableToDate = !!(rowsD[0] as Record<string, unknown>)?.is_date;
+        if (isCastableToTime) {
+           console.log(`✨ Auto-detected time string: ${colName}`);
+        } else {
+             // 1. Check Numeric (Ensuring at least one non-null row exists)
+            const castCheck = await queryFn(`SELECT COUNT(*) > 0 AND COUNT(*) = COUNT(TRY_CAST("${colName}" AS DOUBLE)) as is_numeric FROM ${tableName} WHERE "${colName}" IS NOT NULL`);
+            const rowsN = getRows(castCheck);
+            isCastableToNumeric = !!(rowsN[0] as Record<string, unknown>)?.is_numeric;
 
-          // If standard cast fails, try common formats like M/D/YYYY or D/M/YYYY
-          if (!isCastableToDate) {
-            const commonFormats = ['%m/%d/%Y', '%d/%m/%Y', '%Y/%m/%d', '%m-%d-%Y'];
-            for (const fmt of commonFormats) {
-              try {
-                const fmtCheck = await queryFn(`SELECT COUNT(*) > 0 AND COUNT(*) = COUNT(try_strptime("${colName}", '${fmt}')) as is_fmt FROM ${tableName} WHERE "${colName}" IS NOT NULL`);
-                const rowsF = getRows(fmtCheck);
-                if (!!(rowsF[0] as Record<string, unknown>)?.is_fmt) {
-                  isCastableToDate = true;
-                  console.log(`✨ Detected date format ${fmt} for ${colName}`);
-                  break;
+            // 2. Check Date (if not numeric)
+            if (!isCastableToNumeric) {
+              // Standard DuckDB cast (usually YYYY-MM-DD)
+              const dateCheck = await queryFn(`SELECT COUNT(*) > 0 AND COUNT(*) = COUNT(TRY_CAST("${colName}" AS DATE)) as is_date FROM ${tableName} WHERE "${colName}" IS NOT NULL`);
+              const rowsD = getRows(dateCheck);
+              isCastableToDate = !!(rowsD[0] as Record<string, unknown>)?.is_date;
+
+              // If standard cast fails, try common formats like M/D/YYYY or D/M/YYYY
+              if (!isCastableToDate) {
+                const commonFormats = ['%m/%d/%Y', '%d/%m/%Y', '%Y/%m/%d', '%m-%d-%Y', '%Y-%m-%d'];
+                for (const fmt of commonFormats) {
+                  try {
+                    const fmtCheck = await queryFn(`SELECT COUNT(*) > 0 AND COUNT(*) = COUNT(try_strptime("${colName}", '${fmt}')) as is_fmt FROM ${tableName} WHERE "${colName}" IS NOT NULL`);
+                    const rowsF = getRows(fmtCheck);
+                    if (!!(rowsF[0] as Record<string, unknown>)?.is_fmt) {
+                      isCastableToDate = true;
+                      console.log(`✨ Detected date format ${fmt} for ${colName}`);
+                      break;
+                    }
+                  } catch (_err) {
+                    // Ignore format errors
+                  }
                 }
-              } catch (_err) {
-                // Ignore format errors
               }
             }
-          }
         }
       } catch (e) {
         console.warn(`Failed to check if ${colName} is castable:`, e);
@@ -246,7 +258,7 @@ export async function profileTable(db: { query?: (sql: string) => Promise<unknow
     // Keywords that strongly suggest a field is a measure even if cardinality is low
     const isMeasureKeyword = ['count', 'sum', 'total', 'amount', 'price', 'revenue', 'value', 'score', 'quantity', 'rate', 'ratio', 'percent', 'pct', 'seconds', 'days', 'hours', 'ms', 'duration', 'revenue', 'cost', 'fee', 'tax'].some(kw => colNameLower.includes(kw));
 
-    if (isNumeric || isCastableToNumeric) {
+    if ((isNumeric || isCastableToNumeric) && !isCastableToTime) {
       ingestType = 'number';
       if (isCastableToNumeric) {
         console.log(`✨ Auto-detected numerical string: ${colName}`);
@@ -265,8 +277,14 @@ export async function profileTable(db: { query?: (sql: string) => Promise<unknow
       category = 'temporal';
       ingestType = isDate ? 'timestamp' : 'string';
       if (isCastableToDate) {
-        console.log(`✨ Auto-detected temporal string: ${colName}`);
+        console.log(`✨ Auto-detected temporal string (Date): ${colName}`);
       }
+    } else if (isTime || isCastableToTime) {
+       // We treat pure time columns as categorical for now, or a separate temporal type if supported later
+       // But critically, we do NOT want them to be the primary 'temporal' column for "Last 90 Days" analysis
+       category = 'categorical'; // Downgrade to categorical to avoid it grabbing the spotlight
+       ingestType = 'string';
+       console.log(`✨ Auto-detected time string (Downgrading to Categorical): ${colName}`);
     } else if (colType.includes('BOOL')) {
       category = 'categorical';
       ingestType = 'boolean';
