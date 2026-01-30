@@ -31,8 +31,10 @@ export class SemanticReportObj {
     const strcol = `CAST(${colRef} AS VARCHAR)`;
     return `COALESCE(
       TRY_CAST(${colRef} AS TIMESTAMP),
+      TRY_CAST(${colRef} AS DATE),
       try_strptime(${strcol}, '%m/%d/%Y'),
       try_strptime(${strcol}, '%d/%m/%Y'),
+      try_strptime(${strcol}, '%Y-%m-%d'),
       try_strptime(${strcol}, '%Y/%m/%d'),
       try_strptime(${strcol}, '%m-%d-%Y')
     )`;

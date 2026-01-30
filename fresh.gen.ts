@@ -14,6 +14,7 @@ import * as $api_admin_list_users from "./routes/api/admin/list-users.ts";
 import * as $api_auth_login from "./routes/api/auth/login.ts";
 import * as $api_auth_logout from "./routes/api/auth/logout.ts";
 import * as $api_auth_me from "./routes/api/auth/me.ts";
+import * as $api_auth_risc from "./routes/api/auth/risc.ts";
 import * as $api_auth_signup from "./routes/api/auth/signup.ts";
 import * as $api_demo_check_email from "./routes/api/demo/check-email.ts";
 import * as $api_demo_create_account from "./routes/api/demo/create-account.ts";
@@ -64,6 +65,7 @@ const manifest = {
     "./routes/api/auth/login.ts": $api_auth_login,
     "./routes/api/auth/logout.ts": $api_auth_logout,
     "./routes/api/auth/me.ts": $api_auth_me,
+    "./routes/api/auth/risc.ts": $api_auth_risc,
     "./routes/api/auth/signup.ts": $api_auth_signup,
     "./routes/api/demo/check-email.ts": $api_demo_check_email,
     "./routes/api/demo/create-account.ts": $api_demo_create_account,
